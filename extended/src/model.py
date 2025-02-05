@@ -161,10 +161,12 @@ class LagMixer(nn.Module):
         super(LagMixer, self).__init__()
 
         self.time_step = time_step
-        self.embed = nn.Conv2d(channel, embed_dim, kernel_size=(2, 1), stride=1)
+        self.unfold = nn.Unfold(kernel_size=(2, 1), stride=1)
+
+        self.dense_1 = nn.Linear(channel * 2, embed_dim)
         self.acv = nn.GELU()
 
-        self.flat1 = nn.Flatten(start_dim=1, end_dim=2)
+        # self.flat1 = nn.Flatten(start_dim=1, end_dim=2)
         self.mix_layer = Mixer2dTriU(time_step, embed_dim)
 
     def forward(self, inputs):
@@ -173,11 +175,14 @@ class LagMixer(nn.Module):
         ).to(inputs.device)
         inputs = torch.cat([inputs, paddings], dim=1)
         inputs = inputs.permute(0, 3, 1, 2)
-        x = self.embed(inputs)
+
+        x = self.unfold(inputs)
+        x = x.permute(0, 2, 1)
+
+        x = self.dense_1(x)
         x = self.acv(x)
 
-        x = x.permute(0, 2, 3, 1)
-        x = self.flat1(x)
+        # x = self.flat1(x)
 
         x = x[:, : self.time_step, :]
 
