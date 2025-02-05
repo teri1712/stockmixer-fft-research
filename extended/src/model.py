@@ -1,6 +1,7 @@
 import time
 from IPython import embed
 from matplotlib.pyplot import sca
+from sympy import primefactors
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -161,25 +162,32 @@ class LagMixer(nn.Module):
         super(LagMixer, self).__init__()
 
         self.time_step = time_step
-        self.unfold = nn.Unfold(kernel_size=(2, 1), stride=1)
+        self.unfold = nn.Unfold(kernel_size=(2, 2), stride=1)
 
-        self.dense_1 = nn.Linear(channel * 2, embed_dim)
+        self.dense_patch_embed = nn.Linear(channel * 4, embed_dim)
         self.acv = nn.GELU()
 
         # self.flat1 = nn.Flatten(start_dim=1, end_dim=2)
         self.mix_layer = Mixer2dTriU(time_step, embed_dim)
 
     def forward(self, inputs):
-        paddings = torch.zeros(
+        paddings1 = torch.zeros(
             [inputs.shape[0], 1, inputs.shape[2], inputs.shape[3]]
         ).to(inputs.device)
-        inputs = torch.cat([inputs, paddings], dim=1)
+        inputs = torch.cat([inputs, paddings1], dim=1)
+
+        paddings2 = torch.zeros(
+            [inputs.shape[0], inputs.shape[1], 1, inputs.shape[3]]
+        ).to(inputs.device)
+        inputs = torch.cat([inputs, paddings2], dim=2)
+
         inputs = inputs.permute(0, 3, 1, 2)
 
         x = self.unfold(inputs)
+
         x = x.permute(0, 2, 1)
 
-        x = self.dense_1(x)
+        x = self.dense_patch_embed(x)
         x = self.acv(x)
 
         # x = self.flat1(x)
