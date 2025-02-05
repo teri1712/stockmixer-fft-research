@@ -209,7 +209,7 @@ class MultTime2dMixer(nn.Module):
     def forward(self, inputs):
         window_length = inputs.shape[1]
         scale_list, scale_weight = FFT_for_Period(inputs, self.k)
-        outs = []
+        outs = [inputs]
 
         for i in range(self.k):
             scale = scale_list[i]
@@ -224,7 +224,7 @@ class MultTime2dMixer(nn.Module):
 
             x = x.reshape(x.shape[0], x.shape[1] // scale, scale, x.shape[2])
             outs.append(self.mix_layers[i](x))
-        return torch.cat(outs, dim=1)
+        return torch.cat(outs, dim=2)
 
 
 class NoGraphMixer(nn.Module):
@@ -251,10 +251,10 @@ class StockMixer(nn.Module):
     def __init__(self, stocks, time_steps, channels, market, k=3, embed_dim=20):
         super(StockMixer, self).__init__()
         self.mixer = MultTime2dMixer(time_steps, channels, k, embed_dim)
-        self.channel_fc = nn.Linear(embed_dim, 1)
-        self.time_fc = nn.Linear(time_steps * k, 1)
+        self.channel_fc = nn.Linear(embed_dim * k + channels, 1)
+        self.time_fc = nn.Linear(time_steps, 1)
         self.stock_mixer = NoGraphMixer(stocks, market)
-        self.time_fc_ = nn.Linear(time_steps * k, 1)
+        self.time_fc_ = nn.Linear(time_steps, 1)
 
     def forward(self, inputs):
         y = self.mixer(inputs)
