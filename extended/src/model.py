@@ -251,6 +251,7 @@ class StockMixer(nn.Module):
     def __init__(self, stocks, time_steps, channels, market, k=3, embed_dim=20):
         super(StockMixer, self).__init__()
         self.mixer = MultTime2dMixer(time_steps, channels, k, embed_dim)
+        self.ln1 = nn.LayerNorm([time_steps, embed_dim * k + channels])
         self.channel_fc = nn.Linear(embed_dim * k + channels, 1)
         self.time_fc = nn.Linear(time_steps, 1)
         self.stock_mixer = NoGraphMixer(stocks, market)
@@ -258,6 +259,8 @@ class StockMixer(nn.Module):
 
     def forward(self, inputs):
         y = self.mixer(inputs)
+
+        y = self.ln1(y)
         y = self.channel_fc(y).squeeze(-1)
 
         z = self.stock_mixer(y)
