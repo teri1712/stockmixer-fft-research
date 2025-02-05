@@ -199,12 +199,22 @@ class LagMixer(nn.Module):
 
 
 class MultTime2dMixer(nn.Module):
-    def __init__(self, time_step, channel, k, embed_dim):
+
+    def __init__(self, time_step, channel, k, embed_dim, scale_dim):
         super(MultTime2dMixer, self).__init__()
         self.k = k
-        self.mix_layers = nn.ParameterList(
+        self.lag_mix_layers = nn.ParameterList(
             [LagMixer(time_step, channel, embed_dim) for i in range(k)]
         )
+        self.new_channels = channel + k * embed_dim
+        self.conv = nn.Conv1d(
+            in_channels=self.new_channels,
+            out_channels=self.new_channels,
+            kernel_size=2,
+            stride=2,
+        )
+        self.mix_layer = Mixer2dTriU(time_step, self.new_channels)
+        self.scale_mix_layer = Mixer2dTriU(scale_dim, self.new_channels)
 
     def forward(self, inputs):
         window_length = inputs.shape[1]
@@ -213,18 +223,27 @@ class MultTime2dMixer(nn.Module):
 
         for i in range(self.k):
             scale = scale_list[i]
-            x = inputs
+            z = inputs
             if window_length % scale != 0:
                 expand_length = scale * (window_length // 2 + 1)
 
                 padding = torch.zeros(
-                    [x.shape[0], expand_length - window_length, x.shape[2]]
-                ).to(x.device)
-                x = torch.cat([inputs, padding], dim=1)
+                    [z.shape[0], expand_length - window_length, z.shape[2]]
+                ).to(z.device)
+                z = torch.cat([inputs, padding], dim=1)
 
-            x = x.reshape(x.shape[0], x.shape[1] // scale, scale, x.shape[2])
-            outs.append(self.mix_layers[i](x))
-        return torch.cat(outs, dim=2)
+            z = z.reshape(z.shape[0], z.shape[1] // scale, scale, z.shape[2])
+            outs.append(self.lag_mix_layers[i](z))
+
+        inputs = torch.cat(outs, dim=2)
+
+        y = inputs.permute(0, 2, 1)
+        y = self.conv(y)
+        y = y.permute(0, 2, 1)
+
+        y = self.scale_mix_layer(y)
+        x = self.mix_layer(inputs)
+        return torch.cat([inputs, x, y], dim=1)
 
 
 class NoGraphMixer(nn.Module):
@@ -250,17 +269,17 @@ class StockMixer(nn.Module):
 
     def __init__(self, stocks, time_steps, channels, market, k=3, embed_dim=20):
         super(StockMixer, self).__init__()
-        self.mixer = MultTime2dMixer(time_steps, channels, k, embed_dim)
-        self.ln1 = nn.LayerNorm([time_steps, embed_dim * k + channels])
+        scale_dim = time_steps // 2
+        self.mixer = MultTime2dMixer(time_steps, channels, k, embed_dim, scale_dim)
         self.channel_fc = nn.Linear(embed_dim * k + channels, 1)
-        self.time_fc = nn.Linear(time_steps, 1)
+
+        self.time_fc = nn.Linear(time_steps * 2 + scale_dim, 1)
         self.stock_mixer = NoGraphMixer(stocks, market)
-        self.time_fc_ = nn.Linear(time_steps, 1)
+        self.time_fc_ = nn.Linear(time_steps * 2 + scale_dim, 1)
 
     def forward(self, inputs):
-        y = self.mixer(inputs)
 
-        y = self.ln1(y)
+        y = self.mixer(inputs)
         y = self.channel_fc(y).squeeze(-1)
 
         z = self.stock_mixer(y)
