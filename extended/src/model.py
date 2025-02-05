@@ -216,7 +216,7 @@ class MultTime2dMixer(nn.Module):
             scale = scale_list[i]
             z = inputs
             if window_length % scale != 0:
-                expand_length = scale * (window_length // 2 + 1)
+                expand_length = scale * (window_length // scale + 1)
 
                 padding = torch.zeros(
                     [z.shape[0], expand_length - window_length, z.shape[2]]
