@@ -23,6 +23,7 @@ test_index = 1008
 fea_num = 5
 market_num = 20
 steps = 1
+top_k = 5
 learning_rate = 0.001
 alpha = 0.1
 scale_factor = 3
@@ -57,6 +58,7 @@ model = StockMixer(
     time_steps=lookback_length,
     channels=fea_num,
     market=market_num,
+    k=top_k,
     #     scale=scale_factor
 ).to(device)
 
