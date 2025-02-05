@@ -11,7 +11,7 @@ import pickle
 np.random.seed(123456789)
 torch.random.manual_seed(12345678)
 device = torch.device("cuda") if torch.cuda.is_available() else "cpu"
-
+# 123
 data_path = "../dataset"
 market_name = "NASDAQ"
 relation_name = "wikidata"
@@ -23,7 +23,7 @@ test_index = 1008
 fea_num = 5
 market_num = 20
 steps = 1
-learning_rate = 0.0001
+learning_rate = 0.001
 alpha = 0.1
 scale_factor = 3
 activation = "GELU"
