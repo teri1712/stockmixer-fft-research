@@ -7,6 +7,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.fft
 
+from dwt import DWT
+
 acv = nn.GELU()
 
 
@@ -157,33 +159,6 @@ class Mixer2dTriU(nn.Module):
         return x + y
 
 
-# class Mixer2dTriU(nn.Module):
-#     def __init__(self, time_steps, channels):
-#         super(Mixer2dTriU, self).__init__()
-#         self.LN_1 = nn.LayerNorm([time_steps, channels])
-#         self.LN_2 = nn.LayerNorm([time_steps, channels])
-#         self.LN_3 = nn.LayerNorm([time_steps, channels])
-#         self.timeMixer1 = TriU(time_steps)
-#         self.timeMixer2 = TriU(time_steps)
-#         self.channelMixer = MixerBlock(channels, channels)
-
-#     def forward(self, inputs):
-#         x = self.LN_1(inputs)
-#         x = x.permute(0, 2, 1)
-#         x = self.timeMixer1(x)
-
-#         x = x.permute(0, 2, 1)
-#         x = self.LN_2(x + inputs)
-#         y = self.channelMixer(x)
-
-#         y = self.LN_3(y + x)
-#         z = y.permute(0, 2, 1)
-#         z = self.timeMixer2(z)
-#         z = z.permute(0, 2, 1)
-
-#         return y + z
-
-
 class LagMixer(nn.Module):
     def __init__(self, time_step, scale, channel):
         super(LagMixer, self).__init__()
@@ -217,20 +192,57 @@ class LagMixer(nn.Module):
         return x
 
 
+class DWTLayer(nn.Module):
+
+    def __init__(self, time_step, channel):
+        super(DWTLayer, self).__init__()
+
+        self.time_step = time_step
+        self.mix_layer = Mixer2dTriU(time_step, channel)
+        self.dwt = DWT()
+
+    def forward(self, inputs):
+        cA, cD = self.dwt.compute(inputs)
+        x = self.mix_layer(cA)
+
+        return cA, x
+
+
+# class MultTime2dMixer(nn.Module):
+
+#     def __init__(self, time_step, channel, k):
+#         super(MultTime2dMixer, self).__init__()
+#         self.k = k
+#         self.lag_mix_layers = nn.ParameterList(
+#             [LagMixer(time_step, 2**i, channel) for i in range(k)]
+#         )
+#         self.lag_mix_layers[0] = Mixer2dTriU(time_step, channel)
+
+#     def forward(self, inputs):
+#         outs = [inputs]
+#         for i in range(self.k):
+#             outs.append(self.lag_mix_layers[i](inputs))
+
+#         return torch.cat(outs, dim=1)
+
+
 class MultTime2dMixer(nn.Module):
 
     def __init__(self, time_step, channel, k):
         super(MultTime2dMixer, self).__init__()
         self.k = k
-        self.lag_mix_layers = nn.ParameterList(
-            [LagMixer(time_step, 2**i, channel) for i in range(k)]
+        self.mixer = Mixer2dTriU(time_step, channel)
+        self.dwt_layers = nn.ParameterList(
+            [DWTLayer(time_step // (2**i), channel) for i in range(1, k)]
         )
-        self.lag_mix_layers[0] = Mixer2dTriU(time_step, channel)
 
     def forward(self, inputs):
-        outs = [inputs]
-        for i in range(self.k):
-            outs.append(self.lag_mix_layers[i](inputs))
+        x = self.mixer(inputs)
+        outs = [inputs, x]
+        for i in range(self.k - 1):
+            cA, x = self.dwt_layers[i](inputs)
+            outs.append(x)
+            inputs = cA
 
         return torch.cat(outs, dim=1)
 
