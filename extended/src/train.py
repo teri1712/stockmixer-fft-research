@@ -145,7 +145,7 @@ for epoch in range(epochs):
         optimizer.step()
 
         tra_loss += cur_loss.item()
-        print(j, ": ", cur_loss.item())
+        # print(j, ": ", cur_loss.item())
         tra_reg_loss += cur_reg_loss.item()
         tra_rank_loss += cur_rank_loss.item()
     tra_loss = tra_loss / (valid_index - lookback_length - steps + 1)
