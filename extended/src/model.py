@@ -199,10 +199,12 @@ class DWTLayer(nn.Module):
 
         self.time_step = time_step
         self.mix_layer = Mixer2dTriU(time_step, channel)
+        self.ln = nn.LayerNorm(channel)
         self.dwt = DWT()
 
     def forward(self, inputs):
         cA, cD = self.dwt.compute(inputs)
+        cA = self.ln(cA)
         x = self.mix_layer(cA)
 
         return cA, x
