@@ -203,9 +203,10 @@ class MultTime2dMixer(nn.Module):
     def __init__(self, time_step, channel, k, embed_dim):
         super(MultTime2dMixer, self).__init__()
         self.k = k
-        self.lag_mix_layers = nn.ParameterList(
-            [LagMixer(time_step, channel, channel) for i in range(k)]
-        )
+        # self.lag_mix_layers = nn.ParameterList(
+        #     [LagMixer(time_step, channel, channel) for i in range(k)]
+        # )
+        self.lag_mix_layer = LagMixer(time_step, channel, channel)
 
     def forward(self, inputs):
         window_length = inputs.shape[1]
@@ -223,7 +224,7 @@ class MultTime2dMixer(nn.Module):
                 z = torch.cat([inputs, padding], dim=1)
 
             z = z.reshape(z.shape[0], z.shape[1] // scale, scale, z.shape[2])
-            outs.append(self.lag_mix_layers[i](z))
+            outs.append(self.lag_mix_layer(z))
 
         return torch.cat(outs, dim=1)
 
