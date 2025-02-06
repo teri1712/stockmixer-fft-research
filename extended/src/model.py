@@ -138,50 +138,50 @@ class MultiScaleTimeMixer(nn.Module):
         return y
 
 
-# class Mixer2dTriU(nn.Module):
-#     def __init__(self, time_steps, channels):
-#         super(Mixer2dTriU, self).__init__()
-#         self.LN_1 = nn.LayerNorm([time_steps, channels])
-#         self.LN_2 = nn.LayerNorm([time_steps, channels])
-#         self.timeMixer = TriU(time_steps)
-#         self.channelMixer = MixerBlock(channels, channels)
-
-#     def forward(self, inputs):
-#         x = self.LN_1(inputs)
-#         x = x.permute(0, 2, 1)
-#         x = self.timeMixer(x)
-#         x = x.permute(0, 2, 1)
-
-#         x = self.LN_2(x + inputs)
-#         y = self.channelMixer(x)
-#         return x + y
-
-
-class ReMixer2dTriU(nn.Module):
+class Mixer2dTriU(nn.Module):
     def __init__(self, time_steps, channels):
-        super(ReMixer2dTriU, self).__init__()
+        super(Mixer2dTriU, self).__init__()
         self.LN_1 = nn.LayerNorm([time_steps, channels])
         self.LN_2 = nn.LayerNorm([time_steps, channels])
-        self.LN_3 = nn.LayerNorm([time_steps, channels])
-        self.timeMixer1 = TriU(time_steps)
-        self.timeMixer2 = TriU(time_steps)
+        self.timeMixer = TriU(time_steps)
         self.channelMixer = MixerBlock(channels, channels)
 
     def forward(self, inputs):
         x = self.LN_1(inputs)
         x = x.permute(0, 2, 1)
-        x = self.timeMixer1(x)
-
+        x = self.timeMixer(x)
         x = x.permute(0, 2, 1)
+
         x = self.LN_2(x + inputs)
         y = self.channelMixer(x)
+        return x + y
 
-        y = self.LN_3(y + x)
-        z = y.permute(0, 2, 1)
-        z = self.timeMixer2(z)
-        z = z.permute(0, 2, 1)
 
-        return y + z
+# class Mixer2dTriU(nn.Module):
+#     def __init__(self, time_steps, channels):
+#         super(Mixer2dTriU, self).__init__()
+#         self.LN_1 = nn.LayerNorm([time_steps, channels])
+#         self.LN_2 = nn.LayerNorm([time_steps, channels])
+#         self.LN_3 = nn.LayerNorm([time_steps, channels])
+#         self.timeMixer1 = TriU(time_steps)
+#         self.timeMixer2 = TriU(time_steps)
+#         self.channelMixer = MixerBlock(channels, channels)
+
+#     def forward(self, inputs):
+#         x = self.LN_1(inputs)
+#         x = x.permute(0, 2, 1)
+#         x = self.timeMixer1(x)
+
+#         x = x.permute(0, 2, 1)
+#         x = self.LN_2(x + inputs)
+#         y = self.channelMixer(x)
+
+#         y = self.LN_3(y + x)
+#         z = y.permute(0, 2, 1)
+#         z = self.timeMixer2(z)
+#         z = z.permute(0, 2, 1)
+
+#         return y + z
 
 
 class LagMixer(nn.Module):
@@ -197,7 +197,7 @@ class LagMixer(nn.Module):
         self.acv = nn.GELU()
 
         # self.flat1 = nn.Flatten(start_dim=1, end_dim=2)
-        self.mix_layer = ReMixer2dTriU(time_step // scale, channel)
+        self.mix_layer = Mixer2dTriU(time_step // scale, channel)
 
     def forward(self, inputs):
         x = inputs.reshape(
@@ -225,7 +225,7 @@ class MultTime2dMixer(nn.Module):
         self.lag_mix_layers = nn.ParameterList(
             [LagMixer(time_step, 2**i, channel) for i in range(k)]
         )
-        self.lag_mix_layers[0] = ReMixer2dTriU(time_step, channel)
+        self.lag_mix_layers[0] = Mixer2dTriU(time_step, channel)
 
     def forward(self, inputs):
         outs = [inputs]

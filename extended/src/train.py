@@ -13,15 +13,15 @@ torch.random.manual_seed(12345678)
 device = torch.device("cuda") if torch.cuda.is_available() else "cpu"
 # 123
 data_path = "../dataset"
-market_name = "NASDAQ"
+market_name = "SP500"
 relation_name = "wikidata"
-stock_num = 1026
+stock_num = 474
 lookback_length = 16
 epochs = 100
 valid_index = 756
 test_index = 1008
 fea_num = 5
-market_num = 20
+market_num = 8
 steps = 1
 top_k = 2
 learning_rate = 0.001
