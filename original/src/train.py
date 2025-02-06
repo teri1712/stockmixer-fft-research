@@ -197,3 +197,15 @@ for epoch in range(epochs):
         ),
         "\n\n",
     )
+
+print(
+    "Final Test performance:\n",
+    "mse:{:.2e}, IC:{:.2e}, RIC:{:.2e}, prec@10:{:.2e}, SR:{:.2e}".format(
+        best_test_perf["mse"],
+        best_test_perf["IC"],
+        best_test_perf["RIC"],
+        best_test_perf["prec_10"],
+        best_test_perf["sharpe5"],
+    ),
+    "\n\n",
+)
