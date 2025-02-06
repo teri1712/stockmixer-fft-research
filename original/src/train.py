@@ -141,7 +141,7 @@ for epoch in range(epochs):
         cur_loss = cur_loss
         cur_loss.backward()
         optimizer.step()
-        print(j, ": ", cur_loss.item())
+        # print(j, ": ", cur_loss.item())
 
         tra_loss += cur_loss.item()
         tra_reg_loss += cur_reg_loss.item()
