@@ -211,7 +211,6 @@ class MultTime2dMixer(nn.Module):
         window_length = inputs.shape[1]
         scale_list, scale_weight = FFT_for_Period(inputs, self.k)
         outs = [inputs]
-
         for i in range(self.k):
             scale = scale_list[i]
             z = inputs

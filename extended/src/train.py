@@ -16,7 +16,7 @@ data_path = "../dataset"
 market_name = "NASDAQ"
 relation_name = "wikidata"
 stock_num = 1026
-lookback_length = 24
+lookback_length = 16
 epochs = 100
 valid_index = 756
 test_index = 1008
@@ -145,7 +145,7 @@ for epoch in range(epochs):
         optimizer.step()
 
         tra_loss += cur_loss.item()
-        # print(j, ": ", cur_loss.item())
+        print(j, ": ", cur_loss.item())
         tra_reg_loss += cur_reg_loss.item()
         tra_rank_loss += cur_rank_loss.item()
     tra_loss = tra_loss / (valid_index - lookback_length - steps + 1)
