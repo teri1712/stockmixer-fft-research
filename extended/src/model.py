@@ -163,11 +163,11 @@ class LagMixer(nn.Module):
 
         self.time_step = time_step
         self.scale = scale
-        self.conv = nn.Conv2d(
-            in_channels=channel, out_channels=channel, kernel_size=(scale, 1)
-        )
+        # self.conv = nn.Conv2d(
+        #     in_channels=channel, out_channels=channel, kernel_size=(scale, 1)
+        # )
 
-        self.acv = nn.GELU()
+        # self.acv = nn.GELU()
 
         # self.flat1 = nn.Flatten(start_dim=1, end_dim=2)
         self.mix_layer = Mixer2dTriU(time_step // scale, channel)
@@ -180,12 +180,14 @@ class LagMixer(nn.Module):
             inputs.shape[2],
         )
 
-        x = x.permute(0, 3, 1, 2)
-        x = self.conv(x)
-        x = self.acv(x)
-        x = x.permute(0, 2, 3, 1)
+        # x = x.permute(0, 3, 1, 2)
+        # x = self.conv(x)
+        # x = self.acv(x)
+        # x = x.permute(0, 2, 3, 1)
 
-        x = x.squeeze(dim=1)
+        # x = x.squeeze(dim=1)
+        x = torch.mean(x, dim=1)
+
         x = self.mix_layer(x)
         return x
 
