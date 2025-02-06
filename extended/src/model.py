@@ -158,74 +158,54 @@ class Mixer2dTriU(nn.Module):
 
 
 class LagMixer(nn.Module):
-    def __init__(self, time_step, channel, embed_dim):
+    def __init__(self, time_step, scale, channel):
         super(LagMixer, self).__init__()
 
         self.time_step = time_step
-        self.unfold = nn.Unfold(kernel_size=(2, 2), stride=1)
+        self.scale = scale
+        self.conv = nn.Conv2d(
+            in_channels=channel, out_channels=channel, kernel_size=(scale, 1)
+        )
 
-        self.dense_patch_embed = nn.Linear(channel * 4, embed_dim)
         self.acv = nn.GELU()
 
         # self.flat1 = nn.Flatten(start_dim=1, end_dim=2)
-        self.mix_layer = Mixer2dTriU(time_step, embed_dim)
+        self.mix_layer = Mixer2dTriU(time_step // scale, channel)
 
     def forward(self, inputs):
-        paddings1 = torch.zeros(
-            [inputs.shape[0], 1, inputs.shape[2], inputs.shape[3]]
-        ).to(inputs.device)
-        inputs = torch.cat([inputs, paddings1], dim=1)
+        x = inputs.reshape(
+            inputs.shape[0],
+            self.scale,
+            self.time_step // self.scale,
+            inputs.shape[2],
+        )
 
-        paddings2 = torch.zeros(
-            [inputs.shape[0], inputs.shape[1], 1, inputs.shape[3]]
-        ).to(inputs.device)
-        inputs = torch.cat([inputs, paddings2], dim=2)
-
-        inputs = inputs.permute(0, 3, 1, 2)
-
-        x = self.unfold(inputs)
-
-        x = x.permute(0, 2, 1)
-
-        x = self.dense_patch_embed(x)
+        x = x.permute(0, 3, 1, 2)
+        x = self.conv(x)
         x = self.acv(x)
+        x = x.permute(0, 2, 3, 1)
 
-        # x = self.flat1(x)
-
-        x = x[:, : self.time_step, :]
-
+        x = x.squeeze(dim=1)
         x = self.mix_layer(x)
         return x
 
 
 class MultTime2dMixer(nn.Module):
 
-    def __init__(self, time_step, channel, k, embed_dim):
+    def __init__(self, time_step, channel, k):
         super(MultTime2dMixer, self).__init__()
         self.k = k
-        # self.lag_mix_layers = nn.ParameterList(
-        #     [LagMixer(time_step, channel, channel) for i in range(k)]
-        # )
-        self.lag_mix_layer = LagMixer(time_step, channel, channel)
+        self.lag_mix_layers = nn.ParameterList(
+            [LagMixer(time_step, 2**i, channel) for i in range(k)]
+        )
+        self.lag_mix_layers[0] = Mixer2dTriU(time_step, channel)
 
     def forward(self, inputs):
-        window_length = inputs.shape[1]
-        scale_list, scale_weight = FFT_for_Period(inputs, self.k)
-        z = inputs
+        outs = [inputs]
         for i in range(self.k):
-            scale = scale_list[i]
-            if window_length % scale != 0:
-                expand_length = scale * (window_length // scale + 1)
+            outs.append(self.lag_mix_layers[i](inputs))
 
-                padding = torch.zeros(
-                    [z.shape[0], expand_length - window_length, z.shape[2]]
-                ).to(z.device)
-                z = torch.cat([inputs, padding], dim=1)
-
-            z = z.reshape(z.shape[0], z.shape[1] // scale, scale, z.shape[2])
-            z = self.lag_mix_layer(z)
-
-        return torch.cat([inputs, z], dim=1)
+        return torch.cat(outs, dim=1)
 
 
 class NoGraphMixer(nn.Module):
@@ -249,14 +229,14 @@ class NoGraphMixer(nn.Module):
 
 class StockMixer(nn.Module):
 
-    def __init__(self, stocks, time_steps, channels, market, k=3, embed_dim=20):
+    def __init__(self, stocks, time_steps, channels, market, k=2):
         super(StockMixer, self).__init__()
-        self.mixer = MultTime2dMixer(time_steps, channels, k, embed_dim)
+        self.mixer = MultTime2dMixer(time_steps, channels, k)
         self.channel_fc = nn.Linear(channels, 1)
 
-        self.time_fc = nn.Linear(time_steps * 2, 1)
+        self.time_fc = nn.Linear(time_steps * 3 - time_steps // (2 ** (k - 1)), 1)
         self.stock_mixer = NoGraphMixer(stocks, market)
-        self.time_fc_ = nn.Linear(time_steps * 2, 1)
+        self.time_fc_ = nn.Linear(time_steps * 3 - time_steps // (2 ** (k - 1)), 1)
 
     def forward(self, inputs):
 
