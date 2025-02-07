@@ -1,6 +1,7 @@
 import time
 from IPython import embed
 from matplotlib.pyplot import sca
+from numpy import pad
 from sympy import primefactors
 import torch
 import torch.nn as nn
@@ -160,20 +161,55 @@ class Mixer2dTriU(nn.Module):
         return x + y
 
 
+# class LagMixer(nn.Module):
+#     def __init__(self, time_step, scale, channel):
+#         super(LagMixer, self).__init__()
+
+#         self.time_step = time_step
+#         self.scale = scale
+#         self.conv = nn.Conv2d(
+#             in_channels=channel, out_channels=channel, kernel_size=(scale, 1)
+#         )
+
+#         self.acv = nn.GELU()
+
+#         # self.flat1 = nn.Flatten(start_dim=1, end_dim=2)
+#         self.mix_layer = Mixer2dTriU(time_step // scale, channel)
+
+#     def forward(self, inputs):
+#         x = inputs.reshape(
+#             inputs.shape[0],
+#             self.scale,
+#             self.time_step // self.scale,
+#             inputs.shape[2],
+#         )
+
+#         x = x.permute(0, 3, 1, 2)
+#         x = self.conv(x)
+#         x = self.acv(x)
+#         x = x.permute(0, 2, 3, 1)
+
+#         x = x.squeeze(dim=1)
+#         x = self.mix_layer(x)
+#         return x
+
+
 class LagMixer(nn.Module):
-    def __init__(self, time_step, scale, channel):
+    def __init__(self, time_step, scale, channel, hidden=20):
         super(LagMixer, self).__init__()
 
         self.time_step = time_step
         self.scale = scale
         self.conv = nn.Conv2d(
-            in_channels=channel, out_channels=channel, kernel_size=(scale, 1)
+            in_channels=channel, out_channels=hidden, kernel_size=(2, 1)
         )
 
         self.acv = nn.GELU()
 
         # self.flat1 = nn.Flatten(start_dim=1, end_dim=2)
-        self.mix_layer = Mixer2dTriU(time_step // scale, channel)
+        self.ln1 = nn.LayerNorm(hidden)
+        self.dense1 = nn.Linear(hidden, channel)
+        self.mix_layer = Mixer2dTriU(time_step, hidden)
 
     def forward(self, inputs):
         x = inputs.reshape(
@@ -183,13 +219,19 @@ class LagMixer(nn.Module):
             inputs.shape[2],
         )
 
+        padding = torch.zeros([x.shape[0], 1, x.shape[2], x.shape[3]]).to(x.device)
+        x = torch.cat([x, padding], dim=1)
+
         x = x.permute(0, 3, 1, 2)
         x = self.conv(x)
         x = self.acv(x)
         x = x.permute(0, 2, 3, 1)
 
-        x = x.squeeze(dim=1)
+        x = x.reshape(x.shape[0], x.shape[1] * x.shape[2], x.shape[3])
         x = self.mix_layer(x)
+
+        x = self.ln1(x)
+        x = self.dense1(x)
         return x
 
 
@@ -227,22 +269,22 @@ class Mixer2dGated(nn.Module):
         return x + y
 
 
-# class MultTime2dMixer(nn.Module):
+class MultTime2dMixer(nn.Module):
 
-#     def __init__(self, time_step, channel, k):
-#         super(MultTime2dMixer, self).__init__()
-#         self.k = k
-#         self.lag_mix_layers = nn.ParameterList(
-#             [LagMixer(time_step, 2**i, channel) for i in range(k)]
-#         )
-#         self.lag_mix_layers[0] = Mixer2dTriU(time_step, channel)
+    def __init__(self, time_step, channel, k, hidden=20):
+        super(MultTime2dMixer, self).__init__()
+        self.k = k
+        self.lag_mix_layers = nn.ParameterList(
+            [LagMixer(time_step, 2**i, channel, hidden) for i in range(k)]
+        )
+        self.lag_mix_layers[0] = Mixer2dTriU(time_step, channel)
 
-#     def forward(self, inputs):
-#         outs = [inputs]
-#         for i in range(self.k):
-#             outs.append(self.lag_mix_layers[i](inputs))
+    def forward(self, inputs):
+        outs = [inputs]
+        for i in range(self.k):
+            outs.append(self.lag_mix_layers[i](inputs))
 
-#         return torch.cat(outs, dim=1)
+        return torch.cat(outs, dim=1)
 
 
 # class MultTime2dMixer(nn.Module):
@@ -266,35 +308,35 @@ class Mixer2dGated(nn.Module):
 #         return torch.cat(outs, dim=1)
 
 
-class MultTime2dMixer(nn.Module):
+# class MultTime2dMixer(nn.Module):
 
-    def __init__(self, time_step, channel, k):
-        super(MultTime2dMixer, self).__init__()
-        self.k = k
-        self.gated_layers = nn.ParameterList(
-            [Mixer2dGated(time_step // (2**i), channel) for i in range(0, k)]
-        )
-        self.conv_layers = nn.ParameterList(
-            [
-                nn.Conv1d(channel, channel, kernel_size=2**i, stride=2**i)
-                for i in range(0, k)
-            ]
-        )
+#     def __init__(self, time_step, channel, k):
+#         super(MultTime2dMixer, self).__init__()
+#         self.k = k
+#         self.gated_layers = nn.ParameterList(
+#             [Mixer2dGated(time_step // (2**i), channel) for i in range(0, k)]
+#         )
+#         self.conv_layers = nn.ParameterList(
+#             [
+#                 nn.Conv1d(channel, channel, kernel_size=2**i, stride=2**i)
+#                 for i in range(0, k)
+#             ]
+#         )
 
-    def forward(self, inputs):
-        outs = [inputs]
-        for i in range(self.k):
-            x = inputs
-            if i != 0:
-                x = x.permute(0, 2, 1)
-                x = self.conv_layers[i](x)
-                x = x.permute(0, 2, 1)
+#     def forward(self, inputs):
+#         outs = [inputs]
+#         for i in range(self.k):
+#             x = inputs
+#             if i != 0:
+#                 x = x.permute(0, 2, 1)
+#                 x = self.conv_layers[i](x)
+#                 x = x.permute(0, 2, 1)
 
-            x = self.gated_layers[i](x)
+#             x = self.gated_layers[i](x)
 
-            outs.append(x)
+#             outs.append(x)
 
-        return torch.cat(outs, dim=1)
+#         return torch.cat(outs, dim=1)
 
 
 class NoGraphMixer(nn.Module):
@@ -318,14 +360,14 @@ class NoGraphMixer(nn.Module):
 
 class StockMixer(nn.Module):
 
-    def __init__(self, stocks, time_steps, channels, market, k=2):
+    def __init__(self, stocks, time_steps, channels, market, k=2, hidden=20):
         super(StockMixer, self).__init__()
-        self.mixer = MultTime2dMixer(time_steps, channels, k)
+        self.mixer = MultTime2dMixer(time_steps, channels, k, hidden)
         self.channel_fc = nn.Linear(channels, 1)
 
-        self.time_fc = nn.Linear(time_steps * 3 - time_steps // (2 ** (k - 1)), 1)
+        self.time_fc = nn.Linear(time_steps * (k + 1), 1)
         self.stock_mixer = NoGraphMixer(stocks, market)
-        self.time_fc_ = nn.Linear(time_steps * 3 - time_steps // (2 ** (k - 1)), 1)
+        self.time_fc_ = nn.Linear(time_steps * (k + 1), 1)
 
     def forward(self, inputs):
 
