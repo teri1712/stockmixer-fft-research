@@ -36,7 +36,7 @@ class gMLPBlock(nn.Module):
 
 
 class gMLP(nn.Module):
-    def __init__(self, d_model=5, d_ffn=20, seq_len=16, num_layers=1):
+    def __init__(self, d_model=5, d_ffn=20, seq_len=16, num_layers=2):
         super().__init__()
         self.model = nn.Sequential(
             *[gMLPBlock(d_model, d_ffn, seq_len) for _ in range(num_layers)]
