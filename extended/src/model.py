@@ -10,7 +10,7 @@ import torch.nn.functional as F
 import torch.fft
 
 from dwt import DWT
-from gated import gMLP
+from gated import SpatialGatingUnit, gMLP
 
 acv = nn.GELU()
 
@@ -200,7 +200,7 @@ class Mixer2dGated(nn.Module):
         super(Mixer2dGated, self).__init__()
         self.LN_1 = nn.LayerNorm([time_steps, channels])
         self.LN_2 = nn.LayerNorm([time_steps, channels])
-        self.timeMixer = gMLP(d_model=channels, seq_len=time_steps)
+        self.timeMixer = gMLP(features=channels, tokens=time_steps)
         self.channelMixer = MixerBlock(channels, channels)
 
     def forward(self, inputs):
@@ -211,48 +211,48 @@ class Mixer2dGated(nn.Module):
         return x + y
 
 
-class LagMixer(nn.Module):
-    def __init__(self, time_step, scale, channel, hidden=20):
-        super(LagMixer, self).__init__()
+# class LagMixer(nn.Module):
+#     def __init__(self, time_step, scale, channel, hidden=20):
+#         super(LagMixer, self).__init__()
 
-        self.time_step = time_step
-        self.scale = scale
+#         self.time_step = time_step
+#         self.scale = scale
 
-        self.acv = nn.GELU()
+#         self.acv = nn.GELU()
 
-        # self.flat1 = nn.Flatten(start_dim=1, end_dim=2)
-        # self.ln1 = nn.LayerNorm(hidden)
-        # self.dense1 = nn.Linear(hidden, channel)
+#         # self.flat1 = nn.Flatten(start_dim=1, end_dim=2)
+#         # self.ln1 = nn.LayerNorm(hidden)
+#         # self.dense1 = nn.Linear(hidden, channel)
 
-        if scale == 1:
-            self.conv = nn.Conv2d(channel, hidden, kernel_size=1)
-            self.mix_layer = Mixer2dGated(time_step, hidden)
-        else:
-            self.conv = nn.Conv2d(
-                in_channels=channel,
-                out_channels=hidden,
-                kernel_size=(2, 1),
-                stride=(2, 1),
-            )
-            self.mix_layer = Mixer2dGated(time_step // 2, hidden)
+#         if scale == 1:
+#             self.conv = nn.Conv2d(channel, hidden, kernel_size=1)
+#             self.mix_layer = Mixer2dGated(time_step, hidden)
+#         else:
+#             self.conv = nn.Conv2d(
+#                 in_channels=channel,
+#                 out_channels=hidden,
+#                 kernel_size=(2, 1),
+#                 stride=(2, 1),
+#             )
+#             self.mix_layer = Mixer2dGated(time_step // 2, hidden)
 
-    def forward(self, inputs):
-        x = inputs.reshape(
-            inputs.shape[0],
-            self.scale,
-            self.time_step // self.scale,
-            inputs.shape[2],
-        )
+#     def forward(self, inputs):
+#         x = inputs.reshape(
+#             inputs.shape[0],
+#             self.scale,
+#             self.time_step // self.scale,
+#             inputs.shape[2],
+#         )
 
-        x = x.permute(0, 3, 1, 2)
-        x = self.conv(x)
-        x = self.acv(x)
-        x = x.permute(0, 2, 3, 1)
+#         x = x.permute(0, 3, 1, 2)
+#         x = self.conv(x)
+#         x = self.acv(x)
+#         x = x.permute(0, 2, 3, 1)
 
-        x = x.reshape(x.shape[0], x.shape[1] * x.shape[2], x.shape[3])
-        x = self.mix_layer(x)
-        x = torch.mean(x, dim=1)
-        return x
+#         x = x.reshape(x.shape[0], x.shape[1] * x.shape[2], x.shape[3])
+#         x = self.mix_layer(x)
+#         x = torch.mean(x, dim=1)
+#         return x
 
 
 # class DWTLayer(nn.Module):
@@ -273,13 +273,51 @@ class LagMixer(nn.Module):
 #         return cA, x
 
 
+class ScaleMixer(nn.Module):
+    def __init__(self, time_step, scale, channel):
+        super(ScaleMixer, self).__init__()
+
+        self.time_step = time_step
+        self.scale = scale
+
+        self.acv = nn.GELU()
+
+        # self.flat1 = nn.Flatten(start_dim=1, end_dim=2)
+        # self.ln1 = nn.LayerNorm(hidden)
+        # self.dense1 = nn.Linear(hidden, channel)
+
+        self.conv = nn.Conv2d(
+            in_channels=channel,
+            out_channels=channel,
+            kernel_size=(scale, 1),
+        )
+        self.mix_layer = Mixer2dTriU(time_step // scale, channel)
+
+    def forward(self, inputs):
+        x = inputs.reshape(
+            inputs.shape[0],
+            self.scale,
+            self.time_step // self.scale,
+            inputs.shape[2],
+        )
+
+        x = x.permute(0, 3, 1, 2)
+        x = self.conv(x)
+        x = self.acv(x)
+        x = x.permute(0, 2, 3, 1)
+
+        x = x.squeeze(dim=1)
+        x = self.mix_layer(x)
+        return x
+
+
 class MultTime2dMixer(nn.Module):
 
-    def __init__(self, time_step, channel, k, hidden=20):
+    def __init__(self, time_step, channel, scale):
         super(MultTime2dMixer, self).__init__()
-        self.k = k
+        self.k = scale
         self.lag_mix_layers = nn.ParameterList(
-            [LagMixer(time_step, 2**i, channel, hidden) for i in range(k)]
+            [ScaleMixer(time_step, 2**i, channel) for i in range(scale)]
         )
 
     def forward(self, inputs):
@@ -361,25 +399,48 @@ class NoGraphMixer(nn.Module):
         return x
 
 
-class StockMixer(nn.Module):
+class StockMixerBlock(nn.Module):
 
-    def __init__(self, stocks, time_steps, channels, market, scale=2, hidden=20):
-        super(StockMixer, self).__init__()
-        self.mixer = MultTime2dMixer(time_steps, channels, scale, hidden)
-        self.hidden_fc = nn.Linear(hidden, 1)
+    def __init__(self, stocks, time_steps, channels, market, scale):
+        super(StockMixerBlock, self).__init__()
+        self.mixer = ScaleMixer(time_steps, scale, channels)
+        self.channel_fc = nn.Linear(channels, 1)
 
-        self.scale_fc = nn.Linear(scale, 1)
+        self.time_fc = nn.Linear(time_steps // scale, 1)
         self.stock_mixer = NoGraphMixer(stocks, market)
-        self.scale_fc_ = nn.Linear(scale, 1)
+        self.time_fc_ = nn.Linear(time_steps // scale, 1)
 
     def forward(self, inputs):
 
         y = self.mixer(inputs)
-
-        # (stock,scale,hidden)
-        y = self.hidden_fc(y).squeeze(-1)
+        y = self.channel_fc(y).squeeze(-1)
 
         z = self.stock_mixer(y)
-        y = self.scale_fc(y)
-        z = self.scale_fc_(z)
-        return y + z
+        y = self.time_fc(y)
+
+        z = self.time_fc_(z)
+        return (y + z).squeeze(-1)
+
+
+class StockMixer(nn.Module):
+
+    def __init__(self, stocks, time_steps, channels, market, scale=2):
+        super(StockMixer, self).__init__()
+        self.scale = scale
+        self.scale_mix_layers = nn.ParameterList(
+            [
+                StockMixerBlock(stocks, time_steps, channels, market, 2**i)
+                for i in range(scale)
+            ]
+        )
+        self.gating = gMLP(stocks, scale)
+
+    def forward(self, inputs):
+        scale_outs = []
+        for i in range(self.scale):
+            scale_outs.append(self.scale_mix_layers[i](inputs))
+        x = torch.stack(scale_outs, dim=0)
+        x = x.unsqueeze(dim=0)
+        y = self.gating(x)
+        y = torch.mean(y, dim=1)
+        return y.permute(1, 0)

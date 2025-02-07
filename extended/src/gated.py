@@ -3,10 +3,10 @@ from torch.nn import functional as F
 
 
 class SpatialGatingUnit(nn.Module):
-    def __init__(self, d_ffn, seq_len):
+    def __init__(self, hidden, tokens):
         super().__init__()
-        self.norm = nn.LayerNorm(d_ffn)
-        self.spatial_proj = nn.Conv1d(seq_len, seq_len, kernel_size=1)
+        self.norm = nn.LayerNorm(hidden)
+        self.spatial_proj = nn.Conv1d(tokens, tokens, kernel_size=1)
         nn.init.constant_(self.spatial_proj.bias, 1.0)
 
     def forward(self, x):
@@ -18,12 +18,12 @@ class SpatialGatingUnit(nn.Module):
 
 
 class gMLPBlock(nn.Module):
-    def __init__(self, d_model, d_ffn, seq_len):
+    def __init__(self, features, hidden, tokens):
         super().__init__()
-        self.norm = nn.LayerNorm(d_model)
-        self.channel_proj1 = nn.Linear(d_model, d_ffn * 2)
-        self.channel_proj2 = nn.Linear(d_ffn, d_model)
-        self.sgu = SpatialGatingUnit(d_ffn, seq_len)
+        self.norm = nn.LayerNorm(features)
+        self.channel_proj1 = nn.Linear(features, hidden * 2)
+        self.channel_proj2 = nn.Linear(hidden, features)
+        self.sgu = SpatialGatingUnit(hidden, tokens)
 
     def forward(self, x):
         residual = x
@@ -36,10 +36,11 @@ class gMLPBlock(nn.Module):
 
 
 class gMLP(nn.Module):
-    def __init__(self, d_model=20, d_ffn=20, seq_len=16, num_layers=4):
+    def __init__(self, features, tokens, expand=1, num_layers=1):
         super().__init__()
+        self.hidden = features * expand
         self.model = nn.Sequential(
-            *[gMLPBlock(d_model, d_ffn, seq_len) for _ in range(num_layers)]
+            *[gMLPBlock(features, expand, tokens) for _ in range(num_layers)]
         )
 
     def forward(self, x):
