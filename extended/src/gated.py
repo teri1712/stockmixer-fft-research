@@ -36,7 +36,7 @@ class gMLPBlock(nn.Module):
 
 
 class gMLP(nn.Module):
-    def __init__(self, features, tokens, expand=4, num_layers=6):
+    def __init__(self, features, tokens, expand=1, num_layers=1):
         super().__init__()
         self.hidden = features * expand
         self.model = nn.Sequential(
