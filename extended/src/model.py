@@ -440,7 +440,7 @@ class StockMixerBlock0(nn.Module):
         y = self.time_fc(y)
 
         z = self.time_fc_(z)
-        return (y + z).squeeze(-1)
+        return y + z
 
 
 class StockMixer(nn.Module):
@@ -457,10 +457,11 @@ class StockMixer(nn.Module):
         )
 
         self.norm = nn.LayerNorm(stocks)
-        self.ln1 = nn.Conv1d(scale + 1, 1, kernel_size=1)
+        self.ln1 = nn.Conv1d(scale, 1, kernel_size=1)
 
     def forward(self, inputs):
-        scale_outs = [self.scale0_mixer(inputs)]
+        z = self.scale0_mixer(inputs)
+        scale_outs = []
         for i in range(self.scale):
             scale_outs.append(self.scale_mix_layers[i](inputs))
         x = torch.stack(scale_outs, dim=0)
@@ -469,4 +470,4 @@ class StockMixer(nn.Module):
         x = self.norm(x)
         x = self.ln1(x)
         x = x.squeeze(1)
-        return x.permute(1, 0)
+        return x.permute(1, 0) + z
