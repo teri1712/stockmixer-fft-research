@@ -422,11 +422,33 @@ class StockMixerBlock(nn.Module):
         return (y + z).squeeze(-1)
 
 
+class StockMixerBlock0(nn.Module):
+
+    def __init__(self, stocks, time_steps, channels, market):
+        super(StockMixerBlock0, self).__init__()
+        self.channel_fc = nn.Linear(channels, 1)
+
+        self.time_fc = nn.Linear(time_steps, 1)
+        self.stock_mixer = NoGraphMixer(stocks, market)
+        self.time_fc_ = nn.Linear(time_steps, 1)
+
+    def forward(self, inputs):
+
+        y = self.channel_fc(inputs).squeeze(-1)
+
+        z = self.stock_mixer(y)
+        y = self.time_fc(y)
+
+        z = self.time_fc_(z)
+        return (y + z).squeeze(-1)
+
+
 class StockMixer(nn.Module):
 
     def __init__(self, stocks, time_steps, channels, market, scale=2):
         super(StockMixer, self).__init__()
         self.scale = scale
+        self.scale0_mixer = StockMixerBlock0(stocks, time_steps, channels, market)
         self.scale_mix_layers = nn.ParameterList(
             [
                 StockMixerBlock(stocks, time_steps, channels, market, 2**i)
@@ -435,16 +457,16 @@ class StockMixer(nn.Module):
         )
 
         self.norm = nn.LayerNorm(stocks)
-        self.spatial_proj = nn.Conv1d(scale, 1, kernel_size=1)
+        self.ln1 = nn.Conv1d(scale + 1, 1, kernel_size=1)
 
     def forward(self, inputs):
-        scale_outs = []
+        scale_outs = [self.scale0_mixer(inputs)]
         for i in range(self.scale):
             scale_outs.append(self.scale_mix_layers[i](inputs))
         x = torch.stack(scale_outs, dim=0)
         x = x.unsqueeze(dim=0)
 
         x = self.norm(x)
-        x = self.spatial_proj(x)
+        x = self.ln1(x)
         x = x.squeeze(1)
         return x.permute(1, 0)
