@@ -57,7 +57,7 @@ model = StockMixer(
     time_steps=lookback_length,
     channels=fea_num,
     market=market_num,
-    k=scale_factor,
+    scale=scale_factor,
     #     scale=scale_factor
 ).to(device)
 

@@ -1,3 +1,4 @@
+from re import I
 import time
 from IPython import embed
 from matplotlib.pyplot import sca
@@ -194,65 +195,6 @@ class Mixer2dTriU(nn.Module):
 #         return x
 
 
-class LagMixer(nn.Module):
-    def __init__(self, time_step, scale, channel, hidden=20):
-        super(LagMixer, self).__init__()
-
-        self.time_step = time_step
-        self.scale = scale
-        self.conv = nn.Conv2d(
-            in_channels=channel, out_channels=hidden, kernel_size=(2, 1)
-        )
-
-        self.acv = nn.GELU()
-
-        # self.flat1 = nn.Flatten(start_dim=1, end_dim=2)
-        self.ln1 = nn.LayerNorm(hidden)
-        self.dense1 = nn.Linear(hidden, channel)
-        self.mix_layer = Mixer2dTriU(time_step, hidden)
-
-    def forward(self, inputs):
-        x = inputs.reshape(
-            inputs.shape[0],
-            self.scale,
-            self.time_step // self.scale,
-            inputs.shape[2],
-        )
-
-        padding = torch.zeros([x.shape[0], 1, x.shape[2], x.shape[3]]).to(x.device)
-        x = torch.cat([x, padding], dim=1)
-
-        x = x.permute(0, 3, 1, 2)
-        x = self.conv(x)
-        x = self.acv(x)
-        x = x.permute(0, 2, 3, 1)
-
-        x = x.reshape(x.shape[0], x.shape[1] * x.shape[2], x.shape[3])
-        x = self.mix_layer(x)
-
-        x = self.ln1(x)
-        x = self.dense1(x)
-        return x
-
-
-class DWTLayer(nn.Module):
-
-    def __init__(self, time_step, channel):
-        super(DWTLayer, self).__init__()
-
-        self.time_step = time_step
-        self.mix_layer = Mixer2dTriU(time_step, channel)
-        self.ln = nn.LayerNorm(channel)
-        self.dwt = DWT()
-
-    def forward(self, inputs):
-        cA, cD = self.dwt.compute(inputs)
-        cA = self.ln(cA)
-        x = self.mix_layer(cA)
-
-        return cA, x
-
-
 class Mixer2dGated(nn.Module):
     def __init__(self, time_steps, channels):
         super(Mixer2dGated, self).__init__()
@@ -269,6 +211,68 @@ class Mixer2dGated(nn.Module):
         return x + y
 
 
+class LagMixer(nn.Module):
+    def __init__(self, time_step, scale, channel, hidden=20):
+        super(LagMixer, self).__init__()
+
+        self.time_step = time_step
+        self.scale = scale
+
+        self.acv = nn.GELU()
+
+        # self.flat1 = nn.Flatten(start_dim=1, end_dim=2)
+        # self.ln1 = nn.LayerNorm(hidden)
+        # self.dense1 = nn.Linear(hidden, channel)
+
+        if scale == 1:
+            self.conv = nn.Conv2d(channel, hidden, kernel_size=1)
+            self.mix_layer = Mixer2dGated(time_step, hidden)
+        else:
+            self.conv = nn.Conv2d(
+                in_channels=channel,
+                out_channels=hidden,
+                kernel_size=(2, 1),
+                stride=(2, 1),
+            )
+            self.mix_layer = Mixer2dGated(time_step // 2, hidden)
+
+    def forward(self, inputs):
+        x = inputs.reshape(
+            inputs.shape[0],
+            self.scale,
+            self.time_step // self.scale,
+            inputs.shape[2],
+        )
+
+        x = x.permute(0, 3, 1, 2)
+        x = self.conv(x)
+        x = self.acv(x)
+        x = x.permute(0, 2, 3, 1)
+
+        x = x.reshape(x.shape[0], x.shape[1] * x.shape[2], x.shape[3])
+        x = self.mix_layer(x)
+        x = torch.mean(x, dim=1)
+        return x
+
+
+# class DWTLayer(nn.Module):
+
+#     def __init__(self, time_step, channel):
+#         super(DWTLayer, self).__init__()
+
+#         self.time_step = time_step
+#         self.mix_layer = Mixer2dTriU(time_step, channel)
+#         self.ln = nn.LayerNorm(channel)
+#         self.dwt = DWT()
+
+#     def forward(self, inputs):
+#         cA, cD = self.dwt.compute(inputs)
+#         cA = self.ln(cA)
+#         x = self.mix_layer(cA)
+
+#         return cA, x
+
+
 class MultTime2dMixer(nn.Module):
 
     def __init__(self, time_step, channel, k, hidden=20):
@@ -277,14 +281,13 @@ class MultTime2dMixer(nn.Module):
         self.lag_mix_layers = nn.ParameterList(
             [LagMixer(time_step, 2**i, channel, hidden) for i in range(k)]
         )
-        self.lag_mix_layers[0] = Mixer2dTriU(time_step, channel)
 
     def forward(self, inputs):
-        outs = [inputs]
+        outs = []
         for i in range(self.k):
             outs.append(self.lag_mix_layers[i](inputs))
 
-        return torch.cat(outs, dim=1)
+        return torch.stack(outs, dim=1)
 
 
 # class MultTime2dMixer(nn.Module):
@@ -360,21 +363,23 @@ class NoGraphMixer(nn.Module):
 
 class StockMixer(nn.Module):
 
-    def __init__(self, stocks, time_steps, channels, market, k=2, hidden=10):
+    def __init__(self, stocks, time_steps, channels, market, scale=2, hidden=20):
         super(StockMixer, self).__init__()
-        self.mixer = MultTime2dMixer(time_steps, channels, k, hidden)
-        self.channel_fc = nn.Linear(channels, 1)
+        self.mixer = MultTime2dMixer(time_steps, channels, scale, hidden)
+        self.hidden_fc = nn.Linear(hidden, 1)
 
-        self.time_fc = nn.Linear(time_steps * (k + 1), 1)
+        self.scale_fc = nn.Linear(scale, 1)
         self.stock_mixer = NoGraphMixer(stocks, market)
-        self.time_fc_ = nn.Linear(time_steps * (k + 1), 1)
+        self.scale_fc_ = nn.Linear(scale, 1)
 
     def forward(self, inputs):
 
         y = self.mixer(inputs)
-        y = self.channel_fc(y).squeeze(-1)
+
+        # (stock,scale,hidden)
+        y = self.hidden_fc(y).squeeze(-1)
 
         z = self.stock_mixer(y)
-        y = self.time_fc(y)
-        z = self.time_fc_(z)
+        y = self.scale_fc(y)
+        z = self.scale_fc_(z)
         return y + z
