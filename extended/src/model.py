@@ -433,7 +433,9 @@ class StockMixer(nn.Module):
                 for i in range(scale)
             ]
         )
-        self.gating = gMLP(stocks, scale)
+
+        self.norm = nn.LayerNorm(stocks)
+        self.spatial_proj = nn.Conv1d(scale, 1, kernel_size=1)
 
     def forward(self, inputs):
         scale_outs = []
@@ -441,6 +443,8 @@ class StockMixer(nn.Module):
             scale_outs.append(self.scale_mix_layers[i](inputs))
         x = torch.stack(scale_outs, dim=0)
         x = x.unsqueeze(dim=0)
-        y = self.gating(x)
-        y = torch.mean(y, dim=1)
-        return y.permute(1, 0)
+
+        x = self.norm(x)
+        x = self.spatial_proj(x)
+        x = x.squeeze(1)
+        return x.permute(1, 0)
