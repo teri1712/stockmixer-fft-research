@@ -8,6 +8,7 @@ import torch.nn.functional as F
 import torch.fft
 
 from dwt import DWT
+from gated import gMLP
 
 acv = nn.GELU()
 
@@ -210,6 +211,22 @@ class DWTLayer(nn.Module):
         return cA, x
 
 
+class Mixer2dGated(nn.Module):
+    def __init__(self, time_steps, channels):
+        super(Mixer2dGated, self).__init__()
+        self.LN_1 = nn.LayerNorm([time_steps, channels])
+        self.LN_2 = nn.LayerNorm([time_steps, channels])
+        self.timeMixer = gMLP(d_model=channels, seq_len=time_steps)
+        self.channelMixer = MixerBlock(channels, channels)
+
+    def forward(self, inputs):
+        x = self.LN_1(inputs)
+        x = self.timeMixer(x)
+        x = self.LN_2(x + inputs)
+        y = self.channelMixer(x)
+        return x + y
+
+
 # class MultTime2dMixer(nn.Module):
 
 #     def __init__(self, time_step, channel, k):
@@ -228,23 +245,54 @@ class DWTLayer(nn.Module):
 #         return torch.cat(outs, dim=1)
 
 
+# class MultTime2dMixer(nn.Module):
+
+#     def __init__(self, time_step, channel, k):
+#         super(MultTime2dMixer, self).__init__()
+#         self.k = k
+#         self.mixer = Mixer2dTriU(time_step, channel)
+#         self.dwt_layers = nn.ParameterList(
+#             [Mixer2dTriU(time_step // (2**i), channel) for i in range(1, k)]
+#         )
+
+#     def forward(self, inputs):
+#         x = self.mixer(inputs)
+#         outs = [inputs, x]
+#         for i in range(self.k - 1):
+#             cA, x = self.dwt_layers[i](inputs)
+#             outs.append(x)
+#             inputs = cA
+
+#         return torch.cat(outs, dim=1)
+
+
 class MultTime2dMixer(nn.Module):
 
     def __init__(self, time_step, channel, k):
         super(MultTime2dMixer, self).__init__()
         self.k = k
-        self.mixer = Mixer2dTriU(time_step, channel)
-        self.dwt_layers = nn.ParameterList(
-            [DWTLayer(time_step // (2**i), channel) for i in range(1, k)]
+        self.gated_layers = nn.ParameterList(
+            [Mixer2dGated(time_step // (2**i), channel) for i in range(0, k)]
+        )
+        self.conv_layers = nn.ParameterList(
+            [
+                nn.Conv1d(channel, channel, kernel_size=2**i, stride=2**i)
+                for i in range(0, k)
+            ]
         )
 
     def forward(self, inputs):
-        x = self.mixer(inputs)
-        outs = [inputs, x]
-        for i in range(self.k - 1):
-            cA, x = self.dwt_layers[i](inputs)
+        outs = [inputs]
+        for i in range(self.k):
+            x = inputs
+            if i != 0:
+                x = x.permute(0, 2, 1)
+                x = self.conv_layers[i](x)
+                x = x.permute(0, 2, 1)
+
+            x = self.gated_layers[i](x)
+
             outs.append(x)
-            inputs = cA
 
         return torch.cat(outs, dim=1)
 
