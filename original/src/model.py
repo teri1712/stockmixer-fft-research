@@ -1,8 +1,24 @@
+import time
+from IPython import embed
+from matplotlib.pyplot import sca
+from sympy import primefactors
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import torch.fft
 
 acv = nn.GELU()
+
+
+def FFT_for_Period(x, k):
+    # [B, T, C]
+    xf = torch.fft.rfft(x, dim=1)
+    frequency_list = abs(xf).mean(0).mean(-1)
+    frequency_list[0] = 0
+    _, top_list = torch.topk(frequency_list, k)
+    top_list = top_list.detach().cpu().numpy()
+    period = x.shape[1] // top_list
+    return period, abs(xf).mean(-1)[:, top_list]
 
 
 def get_loss(prediction, ground_truth, base_price, mask, batch_size, alpha):
@@ -141,41 +157,55 @@ class Mixer2dTriU(nn.Module):
         return x + y
 
 
-class LagScale(nn.Module):
-    def __init__(self, timestep, channel, scale):
-        super(LagScale, self).__init__()
-        self.timestep = timestep
+class LagMixer(nn.Module):
+    def __init__(self, time_step, scale, channel):
+        super(LagMixer, self).__init__()
+
+        self.time_step = time_step
         self.scale = scale
-        self.conv = nn.Conv2d(channel, channel, kernel_size=(2, 1))
+        self.conv = nn.Conv2d(
+            in_channels=channel, out_channels=channel, kernel_size=(scale, 1)
+        )
+
         self.acv = nn.GELU()
 
-    def forward(self, x):
-        x = x.permute(0, 2, 1)
-        x = x.reshape(x.shape[0], x.shape[1], self.scale, self.timestep // self.scale)
-        # padding = torch.zeros([x.shape[0], x.shape[1], x.shape[2], 1]).to(x.device)
-        # x = torch.cat([x, padding], dim=3)
-        x = self.conv(x)
+        # self.flat1 = nn.Flatten(start_dim=1, end_dim=2)
+        self.mix_layer = Mixer2dTriU(time_step // scale, channel)
 
-        x = x.squeeze(dim=2)
+    def forward(self, inputs):
+        x = inputs.reshape(
+            inputs.shape[0],
+            self.scale,
+            self.time_step // self.scale,
+            inputs.shape[2],
+        )
+
+        x = x.permute(0, 3, 1, 2)
+        x = self.conv(x)
         x = self.acv(x)
-        x = x.permute(0, 2, 1)
+        x = x.permute(0, 2, 3, 1)
+
+        x = x.squeeze(dim=1)
+        x = self.mix_layer(x)
         return x
 
 
 class MultTime2dMixer(nn.Module):
-    def __init__(self, time_step, channel):
-        super(MultTime2dMixer, self).__init__()
-        self.mix_layer = Mixer2dTriU(time_step, channel)
-        self.scale1_mix_layer = Mixer2dTriU(time_step // 2, channel)
-        # self.scale2_mix_layer = Mixer2dTriU(time_step // 4, channel)
-        # self.scale3_mix_layer = Mixer2dTriU(time_step // 8, channel)
 
-    def forward(self, inputs, x1):
-        x = self.mix_layer(inputs)
-        x1 = self.scale1_mix_layer(x1)
-        # x2 = self.scale2_mix_layer(x2)
-        # x3 = self.scale3_mix_layer(x3)
-        return torch.cat([inputs, x, x1], dim=1)
+    def __init__(self, time_step, channel, scale):
+        super(MultTime2dMixer, self).__init__()
+        self.k = scale
+        self.lag_mix_layers = nn.ParameterList(
+            [LagMixer(time_step, 2**i, channel) for i in range(scale)]
+        )
+        self.lag_mix_layers[0] = Mixer2dTriU(time_step, channel)
+
+    def forward(self, inputs):
+        outs = [inputs]
+        for i in range(self.k):
+            outs.append(self.lag_mix_layers[i](inputs))
+
+        return torch.cat(outs, dim=1)
 
 
 class NoGraphMixer(nn.Module):
@@ -198,33 +228,19 @@ class NoGraphMixer(nn.Module):
 
 
 class StockMixer(nn.Module):
-    def __init__(self, stocks, time_steps, channels, market, scale):
+
+    def __init__(self, stocks, time_steps, channels, market, scale=2):
         super(StockMixer, self).__init__()
-        self.mixer = MultTime2dMixer(time_steps, channels)
+        self.mixer = MultTime2dMixer(time_steps, channels, scale)
         self.channel_fc = nn.Linear(channels, 1)
-        self.time_fc = nn.Linear(time_steps * 2 + time_steps // 2, 1)
-        self.scale1 = LagScale(time_steps, channels, 2)
-        # self.conv2 = nn.Conv1d(
-        #     in_channels=channels, out_channels=channels, kernel_size=4, stride=4
-        # )
-        # self.conv3 = nn.Conv1d(
-        #     in_channels=channels, out_channels=channels, kernel_size=8, stride=8
-        # )
+
+        self.time_fc = nn.Linear(time_steps * 3 - time_steps // (2 ** (scale - 1)), 1)
         self.stock_mixer = NoGraphMixer(stocks, market)
-        self.time_fc_ = nn.Linear(time_steps * 2 + time_steps // 2, 1)
+        self.time_fc_ = nn.Linear(time_steps * 3 - time_steps // (2 ** (scale - 1)), 1)
 
     def forward(self, inputs):
-        x1 = self.scale1(inputs)
 
-        # x2 = inputs.permute(0, 2, 1)
-        # x2 = self.conv2(x2)
-        # x2 = x2.permute(0, 2, 1)
-
-        # x3 = inputs.permute(0, 2, 1)
-        # x3 = self.conv3(x3)
-        # x3 = x3.permute(0, 2, 1)
-
-        y = self.mixer(inputs, x1)
+        y = self.mixer(inputs)
         y = self.channel_fc(y).squeeze(-1)
 
         z = self.stock_mixer(y)
