@@ -145,16 +145,14 @@ class MultTime2dMixer(nn.Module):
     def __init__(self, time_step, channel):
         super(MultTime2dMixer, self).__init__()
         self.mix_layer = Mixer2dTriU(time_step, channel)
-        self.scale1_mix_layer = Mixer2dTriU(time_step // 2, channel)
-        # self.scale2_mix_layer = Mixer2dTriU(time_step // 4, channel)
-        # self.scale3_mix_layer = Mixer2dTriU(time_step // 8, channel)
+        self.mix_layer1 = Mixer2dTriU(time_step, channel)
 
-    def forward(self, inputs, x1):
+    def forward(self, inputs):
         x = self.mix_layer(inputs)
-        x1 = self.scale1_mix_layer(x1)
+        x1 = self.mix_layer1(x)
         # x2 = self.scale2_mix_layer(x2)
         # x3 = self.scale3_mix_layer(x3)
-        return torch.cat([inputs, x, x1], dim=1)
+        return torch.cat([inputs, x1], dim=1)
 
 
 class NoGraphMixer(nn.Module):
@@ -181,33 +179,19 @@ class StockMixer(nn.Module):
         super(StockMixer, self).__init__()
         self.mixer = MultTime2dMixer(time_steps, channels)
         self.channel_fc = nn.Linear(channels, 1)
-        self.time_fc = nn.Linear(time_steps * 2 + time_steps // 2, 1)
+        self.time_fc = nn.Linear(time_steps * 2, 1)
         self.conv1 = nn.Conv1d(
             in_channels=channels, out_channels=channels, kernel_size=2, stride=2
         )
-        # self.conv2 = nn.Conv1d(z
-        #     in_channels=channels, out_channels=channels, kernel_size=4, stride=4
-        # )
-        # self.conv3 = nn.Conv1d(
-        #     in_channels=channels, out_channels=channels, kernel_size=8, stride=8
-        # )
         self.stock_mixer = NoGraphMixer(stocks, market)
-        self.time_fc_ = nn.Linear(time_steps * 2 + time_steps // 2, 1)
+        self.time_fc_ = nn.Linear(time_steps * 2, 1)
 
     def forward(self, inputs):
         x1 = inputs.permute(0, 2, 1)
         x1 = self.conv1(x1)
         x1 = x1.permute(0, 2, 1)
 
-        # x2 = inputs.permute(0, 2, 1)
-        # x2 = self.conv2(x2)
-        # x2 = x2.permute(0, 2, 1)
-
-        # x3 = inputs.permute(0, 2, 1)
-        # x3 = self.conv3(x3)
-        # x3 = x3.permute(0, 2, 1)
-
-        y = self.mixer(inputs, x1)
+        y = self.mixer(inputs)
         y = self.channel_fc(y).squeeze(-1)
 
         z = self.stock_mixer(y)
