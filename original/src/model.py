@@ -154,7 +154,7 @@ class MultTime2dMixer(nn.Module):
         x1 = self.scale1_mix_layer(x1)
         # x2 = self.scale2_mix_layer(x2)
         # x3 = self.scale3_mix_layer(x3)
-        return torch.cat([inputs, x1], dim=1)
+        return torch.cat([inputs, x, x1], dim=1)
 
 
 class NoGraphMixer(nn.Module):
@@ -181,7 +181,7 @@ class StockMixer(nn.Module):
         super(StockMixer, self).__init__()
         self.mixer = MultTime2dMixer(time_steps, channels)
         self.channel_fc = nn.Linear(channels, 1)
-        self.time_fc = nn.Linear(time_steps * 1 + time_steps // 2, 1)
+        self.time_fc = nn.Linear(time_steps * 2 + time_steps // 2, 1)
         self.conv1 = nn.Conv1d(
             in_channels=channels, out_channels=channels, kernel_size=2, stride=2
         )
@@ -192,7 +192,7 @@ class StockMixer(nn.Module):
         #     in_channels=channels, out_channels=channels, kernel_size=8, stride=8
         # )
         self.stock_mixer = NoGraphMixer(stocks, market)
-        self.time_fc_ = nn.Linear(time_steps * 1 + time_steps // 2, 1)
+        self.time_fc_ = nn.Linear(time_steps * 2 + time_steps // 2, 1)
 
     def forward(self, inputs):
         x1 = inputs.permute(0, 2, 1)
