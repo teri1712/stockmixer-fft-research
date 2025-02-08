@@ -146,12 +146,15 @@ class LagScale(nn.Module):
         super(LagScale, self).__init__()
         self.timestep = timestep
         self.scale = scale
-        self.conv = nn.Conv2d(channel, channel, kernel_size=(2, 1))
+        self.conv = nn.Conv2d(channel, channel, kernel_size=(2, 2))
 
     def forward(self, x):
         x = x.permute(0, 2, 1)
         x = x.reshape(x.shape[0], x.shape[1], self.scale, self.timestep // self.scale)
+        padding = torch.zeros([x.shape[0], x.shape[1], x.shape[2], 1]).to(x.device)
+        x = torch.cat([x, padding], dim=3)
         x = self.conv(x).squeeze(dim=2)
+
         x = x.permute(0, 2, 1)
         return x
 
