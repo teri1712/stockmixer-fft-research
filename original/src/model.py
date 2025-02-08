@@ -141,6 +141,21 @@ class Mixer2dTriU(nn.Module):
         return x + y
 
 
+class LagScale(nn.Module):
+    def __init__(self, timestep, channel, scale):
+        super(LagScale, self).__init__()
+        self.timestep = timestep
+        self.scale = scale
+        self.conv = nn.Conv2d(channel, channel, kernel_size=(2, 1))
+
+    def forward(self, x):
+        x = x.permute(0, 2, 1)
+        x = x.reshape(x.shape[0], x.shape[1], self.scale, self.timestep // self.scale)
+        x = self.conv(x).squeeze(dim=2)
+        x = x.permute(0, 2, 1)
+        return x
+
+
 class MultTime2dMixer(nn.Module):
     def __init__(self, time_step, channel):
         super(MultTime2dMixer, self).__init__()
@@ -182,9 +197,7 @@ class StockMixer(nn.Module):
         self.mixer = MultTime2dMixer(time_steps, channels)
         self.channel_fc = nn.Linear(channels, 1)
         self.time_fc = nn.Linear(time_steps * 2 + time_steps // 2, 1)
-        self.conv1 = nn.Conv1d(
-            in_channels=channels, out_channels=channels, kernel_size=2, stride=2
-        )
+        self.scale1 = LagScale(time_steps, channels, 2)
         # self.conv2 = nn.Conv1d(
         #     in_channels=channels, out_channels=channels, kernel_size=4, stride=4
         # )
@@ -195,9 +208,7 @@ class StockMixer(nn.Module):
         self.time_fc_ = nn.Linear(time_steps * 2 + time_steps // 2, 1)
 
     def forward(self, inputs):
-        x1 = inputs.permute(0, 2, 1)
-        x1 = self.conv1(x1)
-        x1 = x1.permute(0, 2, 1)
+        x1 = self.scale1(inputs)
 
         # x2 = inputs.permute(0, 2, 1)
         # x2 = self.conv2(x2)
