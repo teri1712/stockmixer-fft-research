@@ -205,7 +205,7 @@ class StockMixer(nn.Module):
         self.mixer = MultTime2dMixer(time_steps, channels)
         self.channel_fc = nn.Linear(channels, 1)
         self.time_fc = nn.Linear(time_steps * 2 + time_steps // 2, 1)
-        self.scale1 = nn.Conv1d(channels, channels, kernel_size=2, stride=2)
+        self.scale1 = LagScale(time_steps, channels, 2)
         # self.conv2 = nn.Conv1d(
         #     in_channels=channels, out_channels=channels, kernel_size=4, stride=4
         # )
@@ -216,9 +216,9 @@ class StockMixer(nn.Module):
         self.time_fc_ = nn.Linear(time_steps * 2 + time_steps // 2, 1)
 
     def forward(self, inputs):
-        x1 = inputs.permute(0, 2, 1)
-        x1 = self.scale1(x1)
-        x1 = x1.permute(0, 2, 1)
+        # x1 = inputs.permute(0, 2, 1)
+        x1 = self.scale1(inputs)
+        # x1 = x1.permute(0, 2, 1)
 
         # x2 = inputs.permute(0, 2, 1)
         # x2 = self.conv2(x2)
