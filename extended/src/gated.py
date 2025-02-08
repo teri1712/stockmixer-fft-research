@@ -20,14 +20,15 @@ class SpatialGatingUnit(nn.Module):
     def __init__(self, hidden, tokens):
         super().__init__()
         self.norm = nn.LayerNorm(hidden)
-        self.spatial_proj = TriU(tokens)
+        self.spatial_proj = nn.Conv1d(tokens, tokens, kernel_size=1)
+        nn.init.constant_(self.spatial_proj.bias, 1.0)
 
     def forward(self, x):
         u, v = x.chunk(2, dim=-1)
         v = self.norm(v)
-        v = v.permute(0, 2, 1)
+        # v = v.permute(0, 2, 1)
         v = self.spatial_proj(v)
-        v = v.permute(0, 2, 1)
+        # v = v.permute(0, 2, 1)
         out = u * v
         return out
 
@@ -51,7 +52,7 @@ class gMLPBlock(nn.Module):
 
 
 class gMLP(nn.Module):
-    def __init__(self, features, tokens, expand=4, num_layers=4):
+    def __init__(self, features, tokens, expand=2, num_layers=4):
         super().__init__()
         self.hidden = features * expand
         self.model = nn.Sequential(
