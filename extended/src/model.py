@@ -220,7 +220,7 @@ class StockMixer(nn.Module):
 
     def forward(self, inputs):
         x1 = inputs.permute(0, 2, 1)
-        x1 = self.scale1(inputs)
+        x1 = self.scale1(x1)
         x1 = x1.permute(0, 2, 1)
 
         y = self.mixer(inputs, x1)
