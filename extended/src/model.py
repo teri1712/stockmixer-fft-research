@@ -157,9 +157,9 @@ class LagScale(nn.Module):
         # padding = torch.zeros([x.shape[0], x.shape[1], x.shape[2], 1]).to(x.device)
         # x = torch.cat([x, padding], dim=3)
         x = self.conv(x)
+        x = self.acv(x)
 
         x = x.squeeze(dim=2)
-        x = self.acv(x)
         x = x.permute(0, 2, 1)
         return x
 
