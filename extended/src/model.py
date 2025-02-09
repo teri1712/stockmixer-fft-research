@@ -216,9 +216,9 @@ class StockMixer(nn.Module):
         self.time_fc_ = nn.Linear(time_steps * 2 + time_steps // 2, 1)
 
     def forward(self, inputs):
-        # x1 = inputs.permute(0, 2, 1)
-        x1 = self.scale1(inputs)
-        # x1 = x1.permute(0, 2, 1)
+        x1 = inputs.permute(0, 2, 1)
+        x1 = self.scale1(x1)
+        x1 = x1.permute(0, 2, 1)
 
         y = self.mixer(inputs, x1)
         y = self.channel_fc(y).squeeze(-1)
