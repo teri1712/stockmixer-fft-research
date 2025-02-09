@@ -144,23 +144,27 @@ class Mixer2dTriU(nn.Module):
 
 
 class LagScale(nn.Module):
-    def __init__(self, timestep, channel, scale):
+    def __init__(self, time_step, channel, scale):
         super(LagScale, self).__init__()
-        self.timestep = timestep
+        self.time_step = time_step
         self.scale = scale
         self.conv = nn.Conv2d(channel, channel, kernel_size=(2, 1))
         self.acv = nn.GELU()
 
-    def forward(self, x):
-        x = x.permute(0, 2, 1)
-        x = x.reshape(x.shape[0], x.shape[1], self.scale, self.timestep // self.scale)
-        # padding = torch.zeros([x.shape[0], x.shape[1], x.shape[2], 1]).to(x.device)
-        # x = torch.cat([x, padding], dim=3)
+    def forward(self, inputs):
+        x = inputs.reshape(
+            inputs.shape[0],
+            self.scale,
+            self.time_step // self.scale,
+            inputs.shape[2],
+        )
+
+        x = x.permute(0, 3, 1, 2)
         x = self.conv(x)
         x = self.acv(x)
+        x = x.permute(0, 2, 3, 1)
 
-        x = x.squeeze(dim=2)
-        x = x.permute(0, 2, 1)
+        x = x.squeeze(dim=1)
         return x
 
 
