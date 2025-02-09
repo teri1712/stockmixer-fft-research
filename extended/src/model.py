@@ -178,8 +178,8 @@ class Mixer2dTriU(nn.Module):
         x = x.permute(0, 2, 1)
 
         x = self.LN_2(x + inputs)
-        y = self.channelMixer(x)
-        return x + y + self.pairMixer(x)
+        # y = self.channelMixer(x)
+        return x + self.pairMixer(x)
 
 
 class LagMixer(nn.Module):
