@@ -55,6 +55,30 @@ class MixerBlock(nn.Module):
         return x
 
 
+class PairwiseMixerBlock(nn.Module):
+    def __init__(self, mlp_dim, dropout=0.0):
+        super(PairwiseMixerBlock, self).__init__()
+        self.mlp_dim = mlp_dim
+        self.dropout = dropout
+
+        self.dense_1 = nn.Linear(mlp_dim, mlp_dim)
+        self.dense_2 = nn.Linear(mlp_dim, mlp_dim)
+        self.ln1 = nn.LayerNorm(mlp_dim)
+        self.ln2 = nn.LayerNorm(mlp_dim)
+
+    def forward(self, x):
+        x1 = self.dense_1(x)
+        x1 = self.ln1(x1)
+        if self.dropout != 0.0:
+            x1 = F.dropout(x1, p=self.dropout)
+
+        x2 = self.dense_2(x)
+        x2 = self.ln2(x2)
+        if self.dropout != 0.0:
+            x2 = F.dropout(x, p=self.dropout)
+        return x1 * x2
+
+
 class Mixer2d(nn.Module):
     def __init__(self, time_steps, channels):
         super(Mixer2d, self).__init__()
@@ -145,6 +169,7 @@ class Mixer2dTriU(nn.Module):
         self.LN_2 = nn.LayerNorm([time_steps, channels])
         self.timeMixer = TriU(time_steps)
         self.channelMixer = MixerBlock(channels, channels)
+        self.pairMixer = PairwiseMixerBlock(channels)
 
     def forward(self, inputs):
         x = self.LN_1(inputs)
@@ -154,7 +179,7 @@ class Mixer2dTriU(nn.Module):
 
         x = self.LN_2(x + inputs)
         y = self.channelMixer(x)
-        return x + y
+        return x + y + self.pairMixer(x)
 
 
 class LagMixer(nn.Module):
