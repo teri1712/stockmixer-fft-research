@@ -168,7 +168,7 @@ class Mixer2dTriU(nn.Module):
         self.LN_1 = nn.LayerNorm([time_steps, channels])
         self.LN_2 = nn.LayerNorm([time_steps, channels])
         self.timeMixer = TriU(time_steps)
-        self.channelMixer = MixerBlock(channels, channels)
+        # self.channelMixer = MixerBlock(channels, channels)
         self.pairMixer = PairwiseMixerBlock(channels)
 
     def forward(self, inputs):
@@ -178,8 +178,8 @@ class Mixer2dTriU(nn.Module):
         x = x.permute(0, 2, 1)
 
         x = self.LN_2(x + inputs)
-        y = self.channelMixer(x)
-        return x + y + self.pairMixer(x)
+        # y = self.channelMixer(x)
+        return x + self.pairMixer(x)
 
 
 class LagMixer(nn.Module):
