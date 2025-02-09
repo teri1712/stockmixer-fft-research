@@ -234,7 +234,7 @@ class MultTime2dMixer(nn.Module):
 
 
 class NoGraphMixer(nn.Module):
-    def __init__(self, stocks, hidden_dim=25):
+    def __init__(self, stocks, hidden_dim=20):
         super(NoGraphMixer, self).__init__()
         self.dense1 = nn.Linear(stocks, hidden_dim)
         self.activation = nn.Hardswish()
