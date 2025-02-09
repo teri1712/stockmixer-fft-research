@@ -241,13 +241,20 @@ class NoGraphMixer(nn.Module):
         self.dense2 = nn.Linear(hidden_dim, stocks)
         self.layer_norm_stock = nn.LayerNorm(stocks)
 
+        self.dense3 = nn.Linear(hidden_dim, stocks)
+        self.gate = nn.Sigmoid()
+
     def forward(self, inputs):
         x = inputs
         x = x.permute(1, 0)
         x = self.layer_norm_stock(x)
         x = self.dense1(x)
         x = self.activation(x)
+
+        y = self.dense3(x)
+        y = self.gate(y)
         x = self.dense2(x)
+        x = x * y
         x = x.permute(1, 0)
         return x
 
