@@ -208,9 +208,9 @@ class StockMixer(nn.Module):
         super(StockMixer, self).__init__()
         self.mixer = MultTime2dMixer(time_steps, channels)
         self.channel_fc = nn.Linear(channels, 1)
-        # self.scale1 = nn.Conv1d(channels, channels, kernel_size=2, stride=2)
+        self.scale1 = nn.Conv1d(channels, channels, kernel_size=2, stride=2)
 
-        self.scale1 = LagScale(time_steps, channels, 2)
+        # self.scale1 = LagScale(time_steps, channels, 2)
         self.stock_mixer = NoGraphMixer(stocks, market)
         self.time_fc = nn.Linear(time_steps * 2 + time_steps // 2, 1)
         self.time_fc_ = nn.Linear(time_steps * 2 + time_steps // 2, 1)
