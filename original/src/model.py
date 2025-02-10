@@ -135,7 +135,7 @@ class Mixer2dTriU(nn.Module):
         self.LN_1 = nn.LayerNorm([time_steps, channels])
         self.LN_2 = nn.LayerNorm([time_steps, channels])
         self.timeMixer = TriU(time_steps)
-        self.channelMixer = MixerBlock(channels, channels)
+        self.channelMixer = MixerBlock(channels, 10)
 
     def forward(self, inputs):
         x = self.LN_1(inputs)
