@@ -28,11 +28,19 @@ class MixerBlock(nn.Module):
         self.LN = acv
         self.dense_2 = nn.Linear(hidden_dim, mlp_dim)
 
+        self.dense3 = nn.Linear(mlp_dim, hidden_dim)
+        self.gate = nn.Sigmoid()
+
     def forward(self, x):
+        y = self.dense3(x)
+        y = self.gate(y)
+
         x = self.dense_1(x)
         x = self.LN(x)
+
         if self.dropout != 0.0:
             x = F.dropout(x, p=self.dropout)
+        x = x * y
         x = self.dense_2(x)
         if self.dropout != 0.0:
             x = F.dropout(x, p=self.dropout)
