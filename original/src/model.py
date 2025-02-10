@@ -187,7 +187,7 @@ class NoGraphMixer(nn.Module):
         self.layer_norm_stock = nn.LayerNorm(stocks)
 
         self.dense3 = nn.Linear(stocks, hidden_dim)
-        self.gate = nn.Sigmoid()
+        self.gate = nn.Softmax(dim=-1)
 
     def forward(self, inputs):
         x = inputs
