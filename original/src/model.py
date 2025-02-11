@@ -228,7 +228,7 @@ class StockMixer(nn.Module):
         #     in_channels=channels, out_channels=channels, kernel_size=8, stride=8
         # )
         self.stock_mixer1 = NoGraphMixer(stocks, market)
-        self.stock_mixer2 = NoGraphMixer(stocks, market)
+        # self.stock_mixer2 = NoGraphMixer(stocks, market)
         self.time_fc_ = nn.Linear(time_steps * 2 + time_steps // 2, 1)
 
     def forward(self, inputs):
@@ -248,7 +248,7 @@ class StockMixer(nn.Module):
         y = self.channel_fc(y).squeeze(-1)
 
         z = self.stock_mixer1(y)
-        z = self.stock_mixer2(z)
+        # z = self.stock_mixer2(z)
         y = self.time_fc(y)
         z = self.time_fc_(z)
         return y + z
