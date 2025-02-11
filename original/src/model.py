@@ -243,6 +243,7 @@ class GatedMixer(nn.Module):
         self.stocks = stocks
         self.gate = nn.Sequential(nn.Linear(channels, markets), nn.Sigmoid())
 
+        self.stock_mix = MixerBlock(stocks, stocks)
         self.channel_fc = nn.Linear(channels, 1)
         self.dense1 = nn.Linear(stocks, markets)
         self.activation = nn.Hardswish()
@@ -257,7 +258,9 @@ class GatedMixer(nn.Module):
         x = self.layer_norm_stock(x)
 
         # (B,stocks,markets)
-        w = self.gate(x)
+        t = x.permute(0, 2, 1)
+        t = self.stock_mix(t).permute(0, 2, 1)
+        w = self.gate(t)
 
         # (B,markets)
         z = y.permute(1, 0)
