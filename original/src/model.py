@@ -28,18 +28,18 @@ class MixerBlock(nn.Module):
         self.LN = acv
         self.dense_2 = nn.Linear(hidden_dim, mlp_dim)
 
-        self.dense3 = nn.Linear(mlp_dim, hidden_dim)
-        self.gate = nn.Sigmoid()
+        # self.dense3 = nn.Linear(mlp_dim, hidden_dim)
+        # self.gate = nn.Sigmoid()
 
     def forward(self, x):
-        y = self.dense3(x)
-        y = self.gate(y)
+        # y = self.dense3(x)
+        # y = self.gate(y)
 
         x = self.dense_1(x)
         x = self.LN(x)
         if self.dropout != 0.0:
             x = F.dropout(x, p=self.dropout)
-        x = x * y
+        # x = x * y
         x = self.dense_2(x)
         if self.dropout != 0.0:
             x = F.dropout(x, p=self.dropout)
@@ -135,7 +135,7 @@ class Mixer2dTriU(nn.Module):
         self.LN_1 = nn.LayerNorm([time_steps, channels])
         self.LN_2 = nn.LayerNorm([time_steps, channels])
         self.timeMixer = TriU(time_steps)
-        self.channelMixer = MixerBlock(channels, 10)
+        self.channelMixer = MixerBlock(channels, channels)
 
     def forward(self, inputs):
         x = self.LN_1(inputs)
@@ -227,7 +227,8 @@ class StockMixer(nn.Module):
         # self.conv3 = nn.Conv1d(
         #     in_channels=channels, out_channels=channels, kernel_size=8, stride=8
         # )
-        self.stock_mixer = NoGraphMixer(stocks, market)
+        self.stock_mixer1 = NoGraphMixer(stocks, market)
+        self.stock_mixer2 = NoGraphMixer(stocks, market)
         self.time_fc_ = nn.Linear(time_steps * 2 + time_steps // 2, 1)
 
     def forward(self, inputs):
@@ -246,7 +247,8 @@ class StockMixer(nn.Module):
         y = self.mixer(inputs, x1)
         y = self.channel_fc(y).squeeze(-1)
 
-        z = self.stock_mixer(y)
+        z = self.stock_mixer1(y)
+        z = self.stock_mixer2(z)
         y = self.time_fc(y)
         z = self.time_fc_(z)
         return y + z
