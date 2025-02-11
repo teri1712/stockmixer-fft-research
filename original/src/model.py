@@ -221,34 +221,77 @@ class StockMixer(nn.Module):
         self.time_fc = nn.Linear(time_steps * 2 + time_steps // 2, 1)
         # self.scale1 = LagScale(time_steps, channels, 2)
         self.scale1 = nn.Conv1d(channels, channels, kernel_size=2, stride=2)
-        # self.conv2 = nn.Conv1d(
-        #     in_channels=channels, out_channels=channels, kernel_size=4, stride=4
-        # )
-        # self.conv3 = nn.Conv1d(
-        #     in_channels=channels, out_channels=channels, kernel_size=8, stride=8
-        # )
         self.stock_mixer1 = NoGraphMixer(stocks, market)
-        # self.stock_mixer2 = NoGraphMixer(stocks, market)
         self.time_fc_ = nn.Linear(time_steps * 2 + time_steps // 2, 1)
 
     def forward(self, inputs):
         x1 = inputs.permute(0, 2, 1)
         x1 = self.scale1(x1)
         x1 = x1.permute(0, 2, 1)
-
-        # x2 = inputs.permute(0, 2, 1)
-        # x2 = self.conv2(x2)
-        # x2 = x2.permute(0, 2, 1)
-
-        # x3 = inputs.permute(0, 2, 1)
-        # x3 = self.conv3(x3)
-        # x3 = x3.permute(0, 2, 1)
-
         y = self.mixer(inputs, x1)
         y = self.channel_fc(y).squeeze(-1)
 
         z = self.stock_mixer1(y)
-        # z = self.stock_mixer2(z)
+        y = self.time_fc(y)
+        z = self.time_fc_(z)
+        return y + z
+
+
+class GatedMixer(nn.Module):
+    def __init__(self, stocks, channels, markets):
+        super(GatedMixer, self).__init__()
+        self.stocks = stocks
+        self.gate = nn.Sequential(nn.Linear(channels, markets), nn.Sigmoid())
+
+        self.channel_fc = nn.Linear(channels, 1)
+        self.dense1 = nn.Linear(stocks, markets)
+        self.activation = nn.Hardswish()
+        # self.dense2 = nn.Linear(markets, stocks)
+        self.layer_norm_stock = nn.LayerNorm([stocks, channels])
+
+    def forward(self, inputs):
+        x = inputs
+        y = self.channel_fc(x).squeeze(-1)
+
+        x = x.permute(1, 0, 2)
+        x = self.layer_norm_stock(x)
+
+        # (B,stocks,markets)
+        w = self.gate(x)
+
+        # (B,markets)
+        z = y.permute(1, 0)
+        x = self.dense1(z)
+        x = self.activation(x)
+
+        # (B,markets,1)
+        x = x.unsqueeze(-1)
+        # (B,stocks)
+        x = torch.bmm(w, x).squeeze(-1)
+
+        x = x.permute(1, 0)
+        return y, x
+
+
+class GatedStockMixer(nn.Module):
+    def __init__(self, stocks, time_steps, channels, market, scale):
+        super(GatedStockMixer, self).__init__()
+        self.mixer = MultTime2dMixer(time_steps, channels)
+        # self.channel_fc = nn.Linear(channels, 1)
+        self.time_fc = nn.Linear(time_steps * 2 + time_steps // 2, 1)
+        self.scale1 = nn.Conv1d(channels, channels, kernel_size=2, stride=2)
+        self.stock_mixer1 = GatedMixer(stocks, channels, market)
+        self.time_fc_ = nn.Linear(time_steps * 2 + time_steps // 2, 1)
+
+    def forward(self, inputs):
+        x1 = inputs.permute(0, 2, 1)
+        x1 = self.scale1(x1)
+        x1 = x1.permute(0, 2, 1)
+        y = self.mixer(inputs, x1)
+        # y = self.channel_fc(y).squeeze(-1)
+
+        y, z = self.stock_mixer1(y)
+
         y = self.time_fc(y)
         z = self.time_fc_(z)
         return y + z

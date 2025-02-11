@@ -4,7 +4,7 @@ import os
 import torch as torch
 from load_data import load_EOD_data
 from evaluator import evaluate
-from model import get_loss, StockMixer
+from model import GatedStockMixer, get_loss, StockMixer
 import pickle
 
 
@@ -53,7 +53,7 @@ else:
         price_data = pickle.load(f)
 
 trade_dates = mask_data.shape[1]
-model = StockMixer(
+model = GatedStockMixer(
     stocks=stock_num,
     time_steps=lookback_length,
     channels=fea_num,
