@@ -169,38 +169,66 @@ class LagScale(nn.Module):
         return x
 
 
-class GatedBlock(nn.Module):
-    def __init__(self, features, hidden, acv=None):
-        super(GatedBlock, self).__init__()
+class NoGraphMixer(nn.Module):
+    def __init__(self, stocks, hidden_dim=20):
+        super(NoGraphMixer, self).__init__()
+        self.dense1 = nn.Linear(stocks, hidden_dim)
+        self.activation = nn.Hardswish()
+        self.dense2 = nn.Linear(hidden_dim, stocks)
+        self.layer_norm_stock = nn.LayerNorm(stocks)
 
-        self.dense1 = nn.Linear(features, hidden)
-        self.activation = acv
-        self.layer_norm_stock = nn.LayerNorm(features)
-
-        self.dense2 = nn.Linear(features, hidden)
-        self.sigmoid = nn.Sigmoid()
+        self.dense3 = nn.Linear(stocks, hidden_dim)
+        self.gate = nn.Sigmoid()
 
     def forward(self, inputs):
-
         x = inputs
+        x = x.permute(1, 0)
         x = self.layer_norm_stock(x)
 
-        y = self.dense2(x)
-        y = self.sigmoid(y)
+        y = self.dense3(x)
+        y = self.gate(y)
 
         x = self.dense1(x)
-        if self.activation is not None:
-            x = self.activation(x)
+        x = self.activation(x)
+        x = x * y
 
-        return x * y
+        x = self.dense2(x)
+        x = x.permute(1, 0)
+        return x
+
+
+# class GatedBlock(nn.Module):
+#     def __init__(self, features, hidden, acv=None):
+#         super(GatedBlock, self).__init__()
+
+#         self.dense1 = nn.Linear(features, hidden)
+#         self.activation = acv
+#         self.layer_norm = nn.LayerNorm(features)
+
+#         self.dense2 = nn.Linear(features, hidden)
+#         self.sigmoid = nn.Sigmoid()
+
+#     def forward(self, inputs):
+
+#         x = inputs
+#         x = self.layer_norm(x)
+
+#         y = self.dense2(x)
+#         y = self.sigmoid(y)
+
+#         x = self.dense1(x)
+#         if self.activation is not None:
+#             x = self.activation(x)
+
+#         return x * y
 
 
 class MultTime2dMixer(nn.Module):
     def __init__(self, time_step, channel):
         super(MultTime2dMixer, self).__init__()
         self.scale0_mix_layer = Mixer2dTriU(time_step, channel)
-        self.gate0 = GatedBlock(time_step, time_step)
-        self.gate1 = GatedBlock(time_step // 2, time_step // 2)
+        # self.gate0 = GatedBlock(time_step, time_step)
+        # self.gate1 = GatedBlock(time_step // 2, time_step // 2)
         self.scale1_mix_layer = Mixer2dTriU(time_step // 2, channel)
 
     def forward(self, inputs, x1):
@@ -217,20 +245,20 @@ class MultTime2dMixer(nn.Module):
         return torch.cat([inputs, x, x1], dim=1)
 
 
-class NoGraphMixer(nn.Module):
-    def __init__(self, stocks, hidden_dim=20):
-        super(NoGraphMixer, self).__init__()
+# class NoGraphMixer(nn.Module):
+#     def __init__(self, stocks, hidden_dim=20):
+#         super(NoGraphMixer, self).__init__()
 
-        self.gate = GatedBlock(stocks, hidden_dim, nn.Hardswish())
-        self.dense = nn.Linear(hidden_dim, stocks)
+#         self.gate = GatedBlock(stocks, hidden_dim, nn.Hardswish())
+#         self.dense = nn.Linear(hidden_dim, stocks)
 
-    def forward(self, inputs):
-        x = inputs
-        x = x.permute(1, 0)
-        x = self.gate(x)
-        x = self.dense(x)
-        x = x.permute(1, 0)
-        return x
+#     def forward(self, inputs):
+#         x = inputs
+#         x = x.permute(1, 0)
+#         x = self.gate(x)
+#         x = self.dense(x)
+#         x = x.permute(1, 0)
+#         return x
 
 
 class StockMixer(nn.Module):
