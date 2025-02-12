@@ -203,15 +203,21 @@ class MultTime2dMixer(nn.Module):
 
         self.scale0_mix_layer = Mixer2dTriU(time_step, channel)
         self.scale1_mix_layer = Mixer2dTriU(time_step // 2, channel)
-        self.channel_fc = nn.Linear(channel, 1)
 
-        self.fc0 = nn.Sequential(
-            nn.LayerNorm(time_step), nn.Linear(time_step, 5), nn.ReLU()
-        )
-        self.fc1 = nn.Sequential(
-            nn.LayerNorm(time_step // 2), nn.Linear(time_step // 2, 5), nn.ReLU()
-        )
-        self.fc = nn.Sequential(nn.Linear(10, 2), nn.Sigmoid())
+        # self.gate0 = nn.Sequential(
+        #     nn.LayerNorm(time_step),
+        #     nn.Linear(time_step, time_step // 2),
+        #     nn.ReLU(),
+        #     nn.Linear(time_step // 2, 1),
+        #     nn.Sigmoid(),
+        # )
+        # self.gate1 = nn.Sequential(
+        #     nn.LayerNorm(time_step // 2),
+        #     nn.Linear(time_step // 2, time_step // 4),
+        #     nn.ReLU(),
+        #     nn.Linear(time_step // 4, 1),
+        #     nn.Sigmoid(),
+        # )
 
     def forward(self, inputs, x1):
 
@@ -219,34 +225,48 @@ class MultTime2dMixer(nn.Module):
         x0 = self.scale0_mix_layer(x0)
         x1 = self.scale1_mix_layer(x1)
 
-        inputs = self.channel_fc(inputs).squeeze(-1)
-        x0 = self.channel_fc(x0).squeeze(-1)
-        x1 = self.channel_fc(x1).squeeze(-1)
+        return torch.cat([inputs, x0, x1], dim=1)
 
-        z = self.fc(torch.concat([self.fc0(x0), self.fc1(x1)], dim=-1))
-        w0, w1 = torch.split(z, [1, 1], dim=-1)
-        x0 = x0 * w0
-        x1 = x1 * w1
-        z = torch.cat([inputs, x0, x1], dim=-1)
 
-        return z
+class ScalesFc(nn.Module):
+    def __init__(self, time_steps):
+        super(ScalesFc, self).__init__()
+
+        self.time_steps = time_steps
+        self.fc0 = nn.Linear(time_steps, 1)
+        self.fc1 = nn.Linear(time_steps, 1)
+        self.fc2 = nn.Linear(time_steps // 2, 1)
+
+        self.fc = nn.Linear(3, 1)
+
+    def forward(self, inputs):
+        x0, x1, x2 = torch.split(
+            inputs, [self.time_steps, self.time_steps, self.time_steps // 2], dim=-1
+        )
+        x0 = self.fc0(x0)
+        x1 = self.fc1(x1)
+        x2 = self.fc2(x2)
+        return self.fc(torch.cat([x0, x1, x2], dim=-1))
 
 
 class StockMixer(nn.Module):
     def __init__(self, stocks, time_steps, channels, market, scale):
         super(StockMixer, self).__init__()
         self.mixer = MultTime2dMixer(time_steps, channels)
-        self.time_fc = nn.Linear(time_steps * 2 + time_steps // 2, 1)
+        self.channel_fc = nn.Linear(channels, 1)
+        self.time_fc = ScalesFc(time_steps)
 
         self.scale1 = nn.Conv1d(channels, channels, kernel_size=2, stride=2)
         self.stock_mixer1 = NoGraphMixer(stocks, market)
-        self.time_fc_ = nn.Linear(time_steps * 2 + time_steps // 2, 1)
+        self.time_fc_ = ScalesFc(time_steps)
 
     def forward(self, inputs):
         x1 = inputs.permute(0, 2, 1)
         x1 = self.scale1(x1)
         x1 = x1.permute(0, 2, 1)
         y = self.mixer(inputs, x1)
+        y = self.channel_fc(y).squeeze(-1)
+
         z = self.stock_mixer1(y)
 
         y = self.time_fc(y)
