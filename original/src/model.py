@@ -202,10 +202,18 @@ class MultTime2dMixer(nn.Module):
         super(MultTime2dMixer, self).__init__()
         self.scale0_mix_layer = Mixer2dTriU(time_step, channel)
         self.gate0 = nn.Sequential(
-            nn.LayerNorm(time_step), nn.Linear(time_step, 1), nn.Sigmoid()
+            nn.LayerNorm(time_step),
+            nn.Linear(time_step, time_step // 2),
+            nn.ReLU(),
+            nn.Linear(time_step // 2, 1),
+            nn.Sigmoid(),
         )
         self.gate1 = nn.Sequential(
-            nn.LayerNorm(time_step // 2), nn.Linear(time_step // 2, 1), nn.Sigmoid()
+            nn.LayerNorm(time_step // 2),
+            nn.Linear(time_step // 2, time_step // 4),
+            nn.ReLU(),
+            nn.Linear(time_step // 4, 1),
+            nn.Sigmoid(),
         )
         self.scale1_mix_layer = Mixer2dTriU(time_step // 2, channel)
 
