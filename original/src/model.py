@@ -220,18 +220,17 @@ class MultTime2dMixer(nn.Module):
     def forward(self, inputs, x1):
 
         x0 = inputs
+
+        x0 = self.scale0_mix_layer(x0)
         g0 = x0.permute(0, 2, 1)
         g0 = self.gate0(g0)
         g0 = g0.permute(0, 2, 1)
-
-        x0 = self.scale0_mix_layer(x0)
         x0 = x0 * g0
 
+        x1 = self.scale1_mix_layer(x1)
         g1 = x1.permute(0, 2, 1)
         g1 = self.gate1(g1)
         g1 = g1.permute(0, 2, 1)
-
-        x1 = self.scale1_mix_layer(x1)
         x1 = g1 * x1
 
         return torch.cat([inputs, x0, x1], dim=1)
