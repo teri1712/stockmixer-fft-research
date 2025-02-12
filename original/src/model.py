@@ -252,9 +252,29 @@ class BottomUpFc(nn.Module):
         super(BottomUpFc, self).__init__()
 
         self.time_steps = time_steps
-        self.fc0 = nn.Linear(time_steps, 1)
-        self.fc1 = nn.Linear(time_steps + time_steps, time_steps)
-        self.fc2 = nn.Linear(time_steps // 2 + time_steps, time_steps)
+        self.fc0 = nn.Sequential(
+            nn.LayerNorm(time_steps),
+            nn.Linear(time_steps, time_steps),
+            nn.ReLU(),
+            nn.Linear(time_steps, 1),
+        )
+
+        self.fc1 = nn.Sequential(
+            nn.LayerNorm(time_steps + time_steps),
+            nn.Linear(time_steps + time_steps, time_steps + time_steps),
+            nn.ReLU(),
+            nn.Linear(time_steps + time_steps, time_steps),
+        )
+
+        self.fc2 = nn.Sequential(
+            nn.LayerNorm(time_steps + time_steps // 2),
+            nn.Linear(
+                time_steps + time_steps // 2,
+                time_steps + time_steps // 2,
+            ),
+            nn.ReLU(),
+            nn.Linear(time_steps + time_steps // 2, time_steps),
+        )
 
     def forward(self, y, z):
 
