@@ -252,29 +252,29 @@ class BottomUpFc(nn.Module):
         super(BottomUpFc, self).__init__()
 
         self.time_steps = time_steps
-        self.fc0 = nn.Linear(time_steps, 1)
-        self.fc0_ = nn.Linear(time_steps, 1)
+        self.fc0 = nn.Linear(time_steps // 2, 1)
+        self.fc0_ = nn.Linear(time_steps // 2, 1)
 
         self.fc1 = nn.Sequential(
-            nn.LayerNorm(time_steps + time_steps),
-            nn.Linear(time_steps + time_steps, time_steps),
+            nn.LayerNorm(time_steps),
+            nn.Linear(time_steps, time_steps // 2),
         )
 
         self.fc2 = nn.Sequential(
-            nn.LayerNorm(time_steps + time_steps // 2),
-            nn.Linear(time_steps + time_steps // 2, time_steps),
+            nn.LayerNorm(time_steps),
+            nn.Linear(time_steps, time_steps),
         )
 
     def forward(self, y, z):
 
-        y0, y1, y2 = torch.split(
+        y2, y1, y0 = torch.split(
             y, [self.time_steps, self.time_steps, self.time_steps // 2], dim=-1
         )
-        z0, z1, z2 = torch.split(
+        z2, z1, z0 = torch.split(
             z, [self.time_steps, self.time_steps, self.time_steps // 2], dim=-1
         )
-        z1 = self.fc2(torch.cat([z1, z2 + y2], dim=-1))
-        z0 = self.fc1(torch.cat([z0, z1 + y1], dim=-1))
+        z1 = self.fc2(z2 + y2) + z1
+        z0 = self.fc1(z1 + y1) + z0
 
         return self.fc0(z0) + self.fc0_(y0)
 
