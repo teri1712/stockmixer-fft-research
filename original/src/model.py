@@ -254,11 +254,11 @@ class StockMixer(nn.Module):
         super(StockMixer, self).__init__()
         self.mixer = MultTime2dMixer(time_steps, channels)
         self.channel_fc = nn.Linear(channels, 1)
-        self.time_fc = ScalesFc(time_steps)
+        self.time_fc = nn.Linear(time_steps * 2 + time_steps // 2, 1)
 
         self.scale1 = nn.Conv1d(channels, channels, kernel_size=2, stride=2)
         self.stock_mixer1 = NoGraphMixer(stocks, market)
-        self.time_fc_ = ScalesFc(time_steps)
+        self.time_fc_ = nn.Linear(time_steps * 2 + time_steps // 2, 1)
 
     def forward(self, inputs):
         x1 = inputs.permute(0, 2, 1)
