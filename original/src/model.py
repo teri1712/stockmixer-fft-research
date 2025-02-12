@@ -197,68 +197,29 @@ class NoGraphMixer(nn.Module):
         return x
 
 
-# class GatedBlock(nn.Module):
-#     def __init__(self, features, hidden, acv=None):
-#         super(GatedBlock, self).__init__()
-
-#         self.dense1 = nn.Linear(features, hidden)
-#         self.activation = acv
-#         self.layer_norm = nn.LayerNorm(features)
-
-#         self.dense2 = nn.Linear(features, hidden)
-#         self.sigmoid = nn.Sigmoid()
-
-#     def forward(self, inputs):
-
-#         x = inputs
-#         x = self.layer_norm(x)
-
-#         y = self.dense2(x)
-#         y = self.sigmoid(y)
-
-#         x = self.dense1(x)
-#         if self.activation is not None:
-#             x = self.activation(x)
-
-#         return x * y
-
-
 class MultTime2dMixer(nn.Module):
     def __init__(self, time_step, channel):
         super(MultTime2dMixer, self).__init__()
         self.scale0_mix_layer = Mixer2dTriU(time_step, channel)
-        # self.gate0 = GatedBlock(time_step, time_step)
-        # self.gate1 = GatedBlock(time_step // 2, time_step // 2)
+        self.gate0 = nn.Sequential(nn.Linear(time_step, time_step), nn.Sigmoid())
+        self.gate1 = nn.Sequential(
+            nn.Linear(time_step // 2, time_step // 2), nn.Sigmoid()
+        )
         self.scale1_mix_layer = Mixer2dTriU(time_step // 2, channel)
 
     def forward(self, inputs, x1):
-        x = self.scale0_mix_layer(inputs)
-        # x = x.permute(0, 2, 1)
-        # x = self.gate0(x)
-        # x = x.permute(0, 2, 1)
+        x0 = self.scale0_mix_layer(inputs)
+        g0 = x0.permute(0, 2, 1)
+        g0 = self.gate0(g0)
+        g0 = g0.permute(0, 2, 1)
+        x0 = x0 * g0
 
         x1 = self.scale1_mix_layer(x1)
-        # x1 = x1.permute(0, 2, 1)
-        # x1 = self.gate1(x1)
-        # x1 = x1.permute(0, 2, 1)
-
-        return torch.cat([inputs, x, x1], dim=1)
-
-
-# class NoGraphMixer(nn.Module):
-#     def __init__(self, stocks, hidden_dim=20):
-#         super(NoGraphMixer, self).__init__()
-
-#         self.gate = GatedBlock(stocks, hidden_dim, nn.Hardswish())
-#         self.dense = nn.Linear(hidden_dim, stocks)
-
-#     def forward(self, inputs):
-#         x = inputs
-#         x = x.permute(1, 0)
-#         x = self.gate(x)
-#         x = self.dense(x)
-#         x = x.permute(1, 0)
-#         return x
+        g1 = x1.permute(0, 2, 1)
+        g1 = self.gate1(g1)
+        g1 = g1.permute(0, 2, 1)
+        x1 = g1 * x1
+        return torch.cat([inputs, x0, x1], dim=1)
 
 
 class StockMixer(nn.Module):
