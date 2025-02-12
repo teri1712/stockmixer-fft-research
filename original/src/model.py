@@ -253,6 +253,7 @@ class BottomUpFc(nn.Module):
 
         self.time_steps = time_steps
         self.fc0 = nn.Linear(time_steps, 1)
+        self.fc0_ = nn.Linear(time_steps, 1)
 
         self.fc1 = nn.Sequential(
             nn.LayerNorm(time_steps + time_steps),
@@ -282,7 +283,7 @@ class BottomUpFc(nn.Module):
         z1 = self.fc2(torch.cat([z1, z2 + y2], dim=-1))
         z0 = self.fc1(torch.cat([z0, z1 + y1], dim=-1))
 
-        return self.fc0(z0 + y0)
+        return self.fc0(z0) + self.fc0_(y0)
 
 
 class StockMixer(nn.Module):
