@@ -249,7 +249,7 @@ class ScalesFc(nn.Module):
 
 class BottomUpFc(nn.Module):
     def __init__(self, time_steps):
-        super(ScalesFc, self).__init__()
+        super(BottomUpFc, self).__init__()
 
         self.time_steps = time_steps
         self.fc0 = nn.Linear(time_steps, 1)
@@ -275,11 +275,11 @@ class StockMixer(nn.Module):
         super(StockMixer, self).__init__()
         self.mixer = MultTime2dMixer(time_steps, channels)
         self.channel_fc = nn.Linear(channels, 1)
-        self.time_fc = nn.Linear(time_steps * 2 + time_steps // 2, 1)
+        self.time_fc = BottomUpFc(time_steps)
 
         self.scale1 = nn.Conv1d(channels, channels, kernel_size=2, stride=2)
         self.stock_mixer1 = NoGraphMixer(stocks, market)
-        self.time_fc_ = nn.Linear(time_steps * 2 + time_steps // 2, 1)
+        # self.time_fc_ = nn.Linear(time_steps * 2 + time_steps // 2, 1)
 
     def forward(self, inputs):
         x1 = inputs.permute(0, 2, 1)
@@ -290,6 +290,6 @@ class StockMixer(nn.Module):
 
         z = self.stock_mixer1(y)
 
-        y = self.time_fc(y)
-        z = self.time_fc_(z)
-        return y + z
+        return self.time_fc(y, z)
+        # z = self.time_fc_(z)
+        # return y + z
