@@ -233,18 +233,28 @@ class ScalesFc(nn.Module):
         super(ScalesFc, self).__init__()
 
         self.time_steps = time_steps
-        self.fc0 = nn.Linear(time_steps, 1)
-        self.fc1 = nn.Linear(time_steps + time_steps, time_steps)
-        self.fc2 = nn.Linear(time_steps // 2 + time_steps, time_steps)
+        self.fc0 = nn.Sequential(
+            nn.LayerNorm(time_steps // 2),
+            nn.Linear(time_steps // 2, 1),
+        )
+        self.fc1 = nn.Sequential(
+            nn.LayerNorm(time_steps),
+            nn.Linear(time_steps, time_steps // 2),
+        )
+        self.fc2 = nn.Sequential(
+            nn.LayerNorm(time_steps),
+            nn.Linear(time_steps, time_steps),
+        )
 
     def forward(self, inputs):
-        x0, x1, x2 = torch.split(
+        x2, x1, x0 = torch.split(
             inputs, [self.time_steps, self.time_steps, self.time_steps // 2], dim=-1
         )
-        x1 = self.fc2(torch.cat([x1, x2], dim=-1))
-        x0 = self.fc1(torch.cat([x1, x0], dim=-1))
+        x2 = self.fc2(x2)
+        x1 = self.fc1(x1 + x2)
+        x0 = self.fc0(x1 + x0)
 
-        return self.fc0(x0)
+        return x0
 
 
 class BottomUpFc(nn.Module):
@@ -284,11 +294,11 @@ class StockMixer(nn.Module):
         super(StockMixer, self).__init__()
         self.mixer = MultTime2dMixer(time_steps, channels)
         self.channel_fc = nn.Linear(channels, 1)
-        self.time_fc = BottomUpFc(time_steps)
+        self.time_fc = ScalesFc(time_steps)
 
         self.scale1 = nn.Conv1d(channels, channels, kernel_size=2, stride=2)
         self.stock_mixer1 = NoGraphMixer(stocks, market)
-        # self.time_fc_ = nn.Linear(time_steps * 2 + time_steps // 2, 1)
+        self.time_fc_ = ScalesFc(time_steps)
 
     def forward(self, inputs):
         x1 = inputs.permute(0, 2, 1)
@@ -298,7 +308,7 @@ class StockMixer(nn.Module):
         y = self.channel_fc(y).squeeze(-1)
 
         z = self.stock_mixer1(y)
-
-        return self.time_fc(y, z)
-        # z = self.time_fc_(z)
-        # return y + z
+        y = self.time_fc(y)
+        # return self.time_fc(y, z)
+        z = self.time_fc_(z)
+        return y + z
