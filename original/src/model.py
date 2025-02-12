@@ -206,18 +206,12 @@ class MultTime2dMixer(nn.Module):
         self.channel_fc = nn.Linear(channel, 1)
 
         self.fc0 = nn.Sequential(
-            nn.LayerNorm(time_step),
-            nn.Linear(time_step, time_step // 2),
-            nn.ReLU(),
-            nn.Linear(time_step // 2, 1),
+            nn.LayerNorm(time_step), nn.Linear(time_step, 5), nn.ReLU()
         )
         self.fc1 = nn.Sequential(
-            nn.LayerNorm(time_step // 2),
-            nn.Linear(time_step // 2, time_step // 4),
-            nn.ReLU(),
-            nn.Linear(time_step // 4, 1),
+            nn.LayerNorm(time_step // 2), nn.Linear(time_step // 2, 5), nn.ReLU()
         )
-        self.fc = nn.Sequential(nn.Linear(2, 2), nn.Sigmoid())
+        self.fc = nn.Sequential(nn.Linear(10, 2), nn.Sigmoid())
 
     def forward(self, inputs, x1):
 
