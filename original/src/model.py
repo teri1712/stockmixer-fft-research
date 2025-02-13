@@ -186,20 +186,20 @@ class NoGraphMixer(nn.Module):
         self.dense2 = nn.Linear(hidden_dim, stocks)
         self.layer_norm_stock = nn.LayerNorm(stocks)
 
-        self.dense3 = nn.Linear(stocks, hidden_dim)
-        self.gate = nn.Sigmoid()
+        # self.dense3 = nn.Linear(stocks, hidden_dim)
+        # self.gate = nn.Sigmoid()
 
     def forward(self, inputs):
         x = inputs
         x = x.permute(1, 0)
         x = self.layer_norm_stock(x)
 
-        y = self.dense3(x)
-        y = self.gate(y)
+        # y = self.dense3(x)
+        # y = self.gate(y)
 
         x = self.dense1(x)
         x = self.activation(x)
-        x = x * y
+        # x = x * y
 
         x = self.dense2(x)
         x = x.permute(1, 0)
@@ -213,7 +213,7 @@ class StockMixer(nn.Module):
         self.channel_fc = nn.Linear(channels, 1)
         self.time_fc = nn.Linear(time_steps * 2 + time_steps // 2, 1)
         # self.scale1 = LagScale(time_steps, channels, 2)
-        self.scale1 = nn.AvgPool1d(kernel_size=2, stride=2)
+        self.scale1 = nn.Conv1d(channels, channels, kernel_size=2, stride=2)
         # self.conv2 = nn.Conv1d(
         #     in_channels=channels, out_channels=channels, kernel_size=4, stride=4
         # )
