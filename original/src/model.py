@@ -139,7 +139,7 @@ class Mixer2dTriU(nn.Module):
         # x = x.permute(0, 2, 1)
         x, (hn, cn) = self.timeMixer(x)
         # x = x.permute(0, 2, 1)
-        x = self.LN_2(x)
+        x = self.LN_2(x + inputs)
         y = self.channelMixer(x)
         return x + y
 
