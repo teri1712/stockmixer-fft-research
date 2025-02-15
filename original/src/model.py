@@ -214,11 +214,10 @@ class ScaleBlock(nn.Module):
         self.scale = nn.Conv1d(channels, channels, kernel_size=scale, stride=scale)
 
     def forward(self, inputs):
-        x = inputs.permute(0, 2, 1)
-        y = self.dense(x)
+        y = self.dense(inputs)
         y = self.sigmoid(y)
-        x = self.scale(x)
-        x = x.permute(0, 2, 1)
+
+        x = self.scale(inputs)
 
         return x * y
 
@@ -230,7 +229,8 @@ class StockMixer(nn.Module):
         self.channel_fc = nn.Linear(channels, 1)
         self.time_fc = nn.Linear(time_steps * 2 + time_steps // 2, 1)
         # self.scale1 = LagScale(time_steps, channels, 2)
-        self.scale1 = nn.Conv1d(channels, channels, kernel_size=2, stride=2)
+        # self.scale1 = nn.Conv1d(channels, channels, kernel_size=2, stride=2)
+        self.scale1 = ScaleBlock(channels, 2)
         # self.conv2 = nn.Conv1d(
         #     in_channels=channels, out_channels=channels, kernel_size=4, stride=4
         # )
