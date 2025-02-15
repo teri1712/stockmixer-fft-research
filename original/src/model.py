@@ -209,17 +209,18 @@ class NoGraphMixer(nn.Module):
 class ScaleBlock(nn.Module):
     def __init__(self, channels, scale):
         super(ScaleBlock, self).__init__()
-        self.dense = nn.Conv1d(channels, channels, kernel_size=scale, stride=scale)
+        self.dense = nn.Conv1d(channels, channels, kernel_size=1, stride=1)
         self.sigmoid = nn.Sigmoid()
         self.scale = nn.Conv1d(channels, channels, kernel_size=scale, stride=scale)
 
     def forward(self, inputs):
         y = self.dense(inputs)
         y = self.sigmoid(y)
+        x = inputs * y
 
-        x = self.scale(inputs)
+        x = self.scale(x)
 
-        return x * y
+        return x
 
 
 class StockMixer(nn.Module):
