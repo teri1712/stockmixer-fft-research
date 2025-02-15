@@ -212,9 +212,11 @@ class ScaleBlock(nn.Module):
         self.dense = nn.Conv1d(channels, 2 * channels, kernel_size=1, stride=1)
         self.sigmoid = nn.Sigmoid()
         self.scale = nn.Conv1d(channels, channels, kernel_size=scale, stride=scale)
+        self.acv = nn.ReLU()
 
     def forward(self, inputs):
         x, y = self.dense(inputs).chunk(2, dim=1)
+        x = self.acv(x)
         y = self.sigmoid(y)
         x = x * y
         x = self.scale(x)
