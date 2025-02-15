@@ -127,16 +127,19 @@ class Mixer2dTriU(nn.Module):
         super(Mixer2dTriU, self).__init__()
         self.LN_1 = nn.LayerNorm([time_steps, channels])
         self.LN_2 = nn.LayerNorm([time_steps, channels])
-        self.timeMixer = TriU(time_steps)
+        # self.timeMixer = TriU(time_steps)
+        self.timeMixer = nn.LSTM(
+            input_size=channels, hidden_size=channels, num_layers=2, batch_first=True
+        )
+
         self.channelMixer = MixerBlock(channels, channels)
 
     def forward(self, inputs):
         x = self.LN_1(inputs)
-        x = x.permute(0, 2, 1)
-        x = self.timeMixer(x)
-        x = x.permute(0, 2, 1)
-
-        x = self.LN_2(x + inputs)
+        # x = x.permute(0, 2, 1)
+        x, (hn, cn) = self.timeMixer(x)
+        # x = x.permute(0, 2, 1)
+        x = self.LN_2(x)
         y = self.channelMixer(x)
         return x + y
 
@@ -206,22 +209,22 @@ class NoGraphMixer(nn.Module):
         return x
 
 
-class ScaleBlock(nn.Module):
-    def __init__(self, channels, scale):
-        super(ScaleBlock, self).__init__()
-        self.dense = nn.Conv1d(channels, 2 * channels, kernel_size=1, stride=1)
-        self.sigmoid = nn.Sigmoid()
-        self.scale = nn.Conv1d(channels, channels, kernel_size=scale, stride=scale)
-        self.acv = nn.ReLU()
+# class ScaleBlock(nn.Module):
+#     def __init__(self, channels, scale):
+#         super(ScaleBlock, self).__init__()
+#         self.dense = nn.Conv1d(channels, 2 * channels, kernel_size=1, stride=1)
+#         self.sigmoid = nn.Sigmoid()
+#         self.scale = nn.Conv1d(channels, channels, kernel_size=scale, stride=scale)
+#         self.acv = nn.ReLU()
 
-    def forward(self, inputs):
-        x, y = self.dense(inputs).chunk(2, dim=1)
-        x = self.acv(x)
-        y = self.sigmoid(y)
-        x = x * y
-        x = self.scale(x)
+#     def forward(self, inputs):
+#         x, y = self.dense(inputs).chunk(2, dim=1)
+#         x = self.acv(x)
+#         y = self.sigmoid(y)
+#         x = x * y
+#         x = self.scale(x)
 
-        return x
+#         return x
 
 
 class StockMixer(nn.Module):
@@ -231,8 +234,8 @@ class StockMixer(nn.Module):
         self.channel_fc = nn.Linear(channels, 1)
         self.time_fc = nn.Linear(time_steps * 2 + time_steps // 2, 1)
         # self.scale1 = LagScale(time_steps, channels, 2)
-        # self.scale1 = nn.Conv1d(channels, channels, kernel_size=2, stride=2)
-        self.scale1 = ScaleBlock(channels, 2)
+        self.scale1 = nn.Conv1d(channels, channels, kernel_size=2, stride=2)
+        # self.scale1 = ScaleBlock(channels, 2)
         # self.conv2 = nn.Conv1d(
         #     in_channels=channels, out_channels=channels, kernel_size=4, stride=4
         # )
