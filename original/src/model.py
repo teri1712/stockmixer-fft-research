@@ -145,7 +145,7 @@ class MultiScaleTimeMixer(nn.Module):
 
 
 class SEBlock(nn.Module):
-    def __init__(self, in_channels, reduction_ratio=2):
+    def __init__(self, in_channels, reduction_ratio=1):
         super(SEBlock, self).__init__()
         self.avg_pool = nn.AdaptiveAvgPool1d(1)
         self.fc1 = nn.Linear(in_channels, in_channels // reduction_ratio)
