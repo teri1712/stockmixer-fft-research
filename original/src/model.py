@@ -186,7 +186,7 @@ class Mixer2dTriU(nn.Module):
         x = self.LN_2(x + inputs)
 
         y = self.se(x)
-        y = self.channelMixer(y)
+        # y = self.channelMixer(y)
         return x + y
 
 
