@@ -147,24 +147,23 @@ class MultiScaleTimeMixer(nn.Module):
 class SEBlock(nn.Module):
     def __init__(self, in_channels, reduction_ratio=2):
         super(SEBlock, self).__init__()
-        self.avg_pool = nn.AdaptiveAvgPool2d(1)
+        self.avg_pool = nn.AdaptiveAvgPool1d(1)
         self.fc1 = nn.Linear(in_channels, in_channels // reduction_ratio)
         self.relu = nn.ReLU()
         self.fc2 = nn.Linear(in_channels // reduction_ratio, in_channels)
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, x):
-        x = x.unsqueeze(0)
-        z_squeeze = x.permute(0, 3, 1, 2)
+        z_squeeze = x.permute(0, 2, 1)
 
         z_squeeze = self.avg_pool(z_squeeze)
-        z_squeeze = z_squeeze.permute(0, 2, 3, 1)
+        z_squeeze = z_squeeze.permute(0, 2, 1)
         z_excite = self.relu(self.fc1(z_squeeze))
         z_excite = self.sigmoid(self.fc2(z_excite))
 
         y = x * z_excite
 
-        return y.squeeze(0)
+        return y
 
 
 class Mixer2dTriU(nn.Module):
