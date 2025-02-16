@@ -1,3 +1,4 @@
+import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -16,6 +17,27 @@ def get_loss(prediction, ground_truth, base_price, mask, batch_size, alpha):
     rank_loss = torch.mean(F.relu(pre_pw_dif * gt_pw_dif * mask_pw))
     loss = reg_loss + alpha * rank_loss
     return loss, reg_loss, rank_loss, return_ratio
+
+
+class PositionalEmbedding(nn.Module):
+    def __init__(self, d_model, max_len=5000):
+        super(PositionalEmbedding, self).__init__()
+        # Compute the positional encodings once in log space.
+        pe = torch.zeros(max_len, ((d_model + 1) // 2) * 2).float()
+        pe.require_grad = False
+
+        position = torch.arange(0, max_len).float().unsqueeze(1)
+        div_term = (
+            torch.arange(0, d_model, 2).float() * -(math.log(10000.0) / d_model)
+        ).exp()
+        pe[:, 0::2] = torch.sin(position * div_term)
+        pe[:, 1::2] = torch.cos(position * div_term)
+
+        pe = pe.unsqueeze(0)
+        self.register_buffer("pe", pe)
+
+    def forward(self, x):
+        return x + self.pe[:, : x.size(1), :-1]
 
 
 class MixerBlock(nn.Module):
@@ -230,22 +252,18 @@ class NoGraphMixer(nn.Module):
 class StockMixer(nn.Module):
     def __init__(self, stocks, time_steps, channels, market, scale):
         super(StockMixer, self).__init__()
+        self.ln1 = nn.LayerNorm([time_steps, channels])
+        self.emb = PositionalEmbedding(channels)
         self.mixer = MultTime2dMixer(time_steps, channels)
         self.channel_fc = nn.Linear(channels, 1)
         self.time_fc = nn.Linear(time_steps * 2 + time_steps // 2, 1)
-        # self.scale1 = LagScale(time_steps, channels, 2)
         self.scale1 = nn.Conv1d(channels, channels, kernel_size=2, stride=2)
-        # self.scale1 = ScaleBlock(channels, 2)
-        # self.conv2 = nn.Conv1d(
-        #     in_channels=channels, out_channels=channels, kernel_size=4, stride=4
-        # )
-        # self.conv3 = nn.Conv1d(
-        #     in_channels=channels, out_channels=channels, kernel_size=8, stride=8
-        # )
         self.stock_mixer = NoGraphMixer(stocks, market)
         self.time_fc_ = nn.Linear(time_steps * 2 + time_steps // 2, 1)
 
     def forward(self, inputs):
+        inputs = self.ln1(inputs)
+        inputs = self.emb(inputs)
         x1 = inputs.permute(0, 2, 1)
         x1 = self.scale1(x1)
         x1 = x1.permute(0, 2, 1)
