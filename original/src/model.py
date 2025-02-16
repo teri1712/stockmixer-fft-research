@@ -127,19 +127,19 @@ class Mixer2dTriU(nn.Module):
         super(Mixer2dTriU, self).__init__()
         self.LN_1 = nn.LayerNorm([time_steps, channels])
         self.LN_2 = nn.LayerNorm([time_steps, channels])
-        # self.timeMixer = TriU(time_steps)
-        self.timeMixer = nn.LSTM(
-            input_size=channels, hidden_size=channels, num_layers=1, batch_first=True
-        )
+        self.timeMixer = TriU(time_steps)
+        # self.timeMixer = nn.LSTM(
+        #     input_size=channels, hidden_size=channels, num_layers=1, batch_first=True
+        # )
 
         self.channelMixer = MixerBlock(channels, channels)
 
     def forward(self, inputs):
         x = self.LN_1(inputs)
-        # x = x.permute(0, 2, 1)
-        x, (hn, cn) = self.timeMixer(x)
-        # x = x.permute(0, 2, 1)
-        x = self.LN_2(x)
+        x = x.permute(0, 2, 1)
+        x = self.timeMixer(x)
+        x = x.permute(0, 2, 1)
+        x = self.LN_2(x + inputs)
         y = self.channelMixer(x)
         return x + y
 
