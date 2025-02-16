@@ -214,7 +214,7 @@ class NoGraphMixer(nn.Module):
 
     def forward(self, inputs):
         x = inputs
-        x = x.permute(1, 0)
+        x = x.permute(1, 2, 0)
         x = self.layer_norm_stock(x)
 
         y = self.dense3(x)
@@ -225,7 +225,7 @@ class NoGraphMixer(nn.Module):
         x = x * y
 
         x = self.dense2(x)
-        x = x.permute(1, 0)
+        x = x.permute(2, 0, 1)
         return x
 
 
@@ -270,9 +270,12 @@ class StockMixer(nn.Module):
         x2 = x2.permute(0, 2, 1)
 
         y = self.mixer(inputs, x1, x2)
-        y = self.channel_fc(y).squeeze(-1)
 
         z = self.stock_mixer(y)
+        y = y.permute(0, 2, 1)
         y = self.time_fc(y)
+
+        z = z.permute(0, 2, 1)
         z = self.time_fc_(z)
-        return y + z
+        t = (y + z).squeeze(-1)
+        return self.channel_fc(t)
