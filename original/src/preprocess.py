@@ -2,14 +2,14 @@ import numpy as np
 
 
 def calculate_rsi(prices, window=14):
-    delta = np.diff(prices, prepend=0)  # Price changes
+    delta = np.diff(prices, prepend=np.nan)
     gain = np.where(delta > 0, delta, 0)
     loss = np.where(delta < 0, -delta, 0)
 
     # Smooth averages using EMA
     avg_gain = np.full_like(prices, np.nan)
     avg_loss = np.full_like(prices, np.nan)
-    avg_gain[window] = np.mean(gain[1 : window + 1])  # Skip NaN prepended
+    avg_gain[window] = np.mean(gain[1 : window + 1])
     avg_loss[window] = np.mean(loss[1 : window + 1])
 
     for i in range(window + 1, len(prices)):
@@ -54,9 +54,12 @@ def append_technical_indicators(stock_prices):
     close_prices = stock_prices[:, :, 3]
     rsi = np.apply_along_axis(calculate_rsi, axis=1, arr=close_prices)
     rsi = np.expand_dims(rsi, axis=-1)
+    rsi[np.isnan(rsi)] = 0
     mca = np.apply_along_axis(
         calculate_macd,
         axis=1,
         arr=close_prices,
     )
+    mca[np.isnan(mca)] = 0
+
     return np.concatenate([stock_prices, rsi, mca], axis=2)
