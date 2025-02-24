@@ -56,12 +56,12 @@ def append_technical_indicators(stock_prices):
     rsi = np.apply_along_axis(calculate_rsi, axis=1, arr=close_prices)
     rsi = np.expand_dims(rsi, axis=-1)
     rsi[np.isnan(rsi)] = 50
-    mca = np.apply_along_axis(
-        calculate_macd,
-        axis=1,
-        arr=close_prices,
-    )
+    #     mca = np.apply_along_axis(
+    #         calculate_macd,
+    #         axis=1,
+    #         arr=close_prices,
+    #     )
 
-    mca[np.isnan(mca)] = 0
+    #     mca[np.isnan(mca)] = 0
 
-    return np.concatenate([stock_prices, mca], axis=2)
+    return np.concatenate([stock_prices, rsi], axis=2)
