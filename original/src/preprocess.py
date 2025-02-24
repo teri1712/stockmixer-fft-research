@@ -19,7 +19,9 @@ def calculate_rsi(prices, window=14):
     rs = avg_gain / avg_loss
 
     rsi = 100 - (100 / (1 + rs))
-    return rsi
+    rsi[np.isnan(rsi)] = 50
+
+    return (rsi - rsi.mean()) / rsi.std()
 
 
 def calculate_macd(prices, fast=12, slow=26, signal=9):
@@ -50,19 +52,16 @@ def calculate_macd(prices, fast=12, slow=26, signal=9):
     macd[np.isnan(macd)] = 0
     signal_line[np.isnan(signal_line)] = 0
 
-    macd = (macd - macd.min()) / (macd.max() - macd.min())
-    signal_line = (signal_line - signal_line.min()) / (
-        signal_line.max() - signal_line.min()
-    )
+    macd = (macd - np.mean(macd)) / np.std(macd)
+    signal_line = (signal_line - np.mean(signal_line)) / np.std(signal_line)
 
-    return np.stack([macd, signal_line], axis=1)
+    return np.stack([macd], axis=1)
 
 
 def append_technical_indicators(stock_prices):
     close_prices = stock_prices[:, :, 3]
     #     rsi = np.apply_along_axis(calculate_rsi, axis=1, arr=close_prices)
     #     rsi = np.expand_dims(rsi, axis=-1)
-    #     rsi[np.isnan(rsi)] = 50
     macd = np.apply_along_axis(
         calculate_macd,
         axis=1,
