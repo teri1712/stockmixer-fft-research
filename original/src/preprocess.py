@@ -47,8 +47,12 @@ def calculate_macd(prices, fast=12, slow=26, signal=9):
         signal_line[i] = (macd[i] * (2 / (signal + 1))) + (
             signal_line[i - 1] * (1 - 2 / (signal + 1))
         )
-    macd = (macd - macd.mean()) / macd.std()
-    signal_line = (signal_line - signal_line.mean()) / signal_line.std()
+    macd[np.isnan(macd)] = 0
+    signal_line[np.isnan(signal_line)] = 0
+
+    macd = (macd - np.mean(macd)) / np.std(macd)
+    signal_line = (signal_line - np.mean(signal_line)) / np.std(signal_line)
+
     return np.stack([macd, signal_line], axis=1)
 
 
@@ -62,6 +66,5 @@ def append_technical_indicators(stock_prices):
         axis=1,
         arr=close_prices,
     )
-    macd[np.isnan(macd)] = 0
 
     return np.concatenate([stock_prices, macd], axis=2)
