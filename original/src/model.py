@@ -267,7 +267,7 @@ class NoGraphMixer(nn.Module):
 class StockMixer(nn.Module):
     def __init__(self, stocks, time_steps, channels, market, scale):
         super(StockMixer, self).__init__()
-        self.ln = nn.LayerNorm([time_steps, channels])
+        self.ln = nn.LayerNorm(channels)
         self.mixer = MultTime2dMixer(time_steps, channels)
         self.channel_fc = nn.Linear(channels, 1)
         self.time_fc = nn.Linear(time_steps * 2 + time_steps // 2, 1)
