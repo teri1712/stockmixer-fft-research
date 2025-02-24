@@ -54,7 +54,7 @@ else:
     with open(os.path.join(dataset_path, "price_data.pkl"), "rb") as f:
         price_data = pickle.load(f)
 
-eod_data = append_technical_indicators(eod_data)
+# eod_data = append_technical_indicators(eod_data)
 fea_num = eod_data.shape[2]
 trade_dates = mask_data.shape[1]
 model = StockMixer(
