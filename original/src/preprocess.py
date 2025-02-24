@@ -39,7 +39,6 @@ def calculate_macd(prices, fast=12, slow=26, signal=9):
         ema_slow[i] = (prices[i] * (2 / (slow + 1))) + (
             ema_slow[i - 1] * (1 - 2 / (slow + 1))
         )
-
     macd = ema_fast - ema_slow
     signal_line = np.full_like(macd, np.nan)
     signal_line[slow + signal - 2] = np.mean(macd[slow - 1 : slow + signal - 1])
@@ -48,20 +47,21 @@ def calculate_macd(prices, fast=12, slow=26, signal=9):
         signal_line[i] = (macd[i] * (2 / (signal + 1))) + (
             signal_line[i - 1] * (1 - 2 / (signal + 1))
         )
+    macd = (macd - macd.mean()) / macd.std()
+    signal_line = (signal_line - signal_line.mean()) / signal_line.std()
     return np.stack([macd, signal_line], axis=1)
 
 
 def append_technical_indicators(stock_prices):
     close_prices = stock_prices[:, :, 3]
-    rsi = np.apply_along_axis(calculate_rsi, axis=1, arr=close_prices)
-    rsi = np.expand_dims(rsi, axis=-1)
-    rsi[np.isnan(rsi)] = 50
-    #     mca = np.apply_along_axis(
-    #         calculate_macd,
-    #         axis=1,
-    #         arr=close_prices,
-    #     )
+    #     rsi = np.apply_along_axis(calculate_rsi, axis=1, arr=close_prices)
+    #     rsi = np.expand_dims(rsi, axis=-1)
+    #     rsi[np.isnan(rsi)] = 50
+    macd = np.apply_along_axis(
+        calculate_macd,
+        axis=1,
+        arr=close_prices,
+    )
+    macd[np.isnan(macd)] = 0
 
-    #     mca[np.isnan(mca)] = 0
-
-    return np.concatenate([stock_prices, rsi], axis=2)
+    return np.concatenate([stock_prices, macd], axis=2)
