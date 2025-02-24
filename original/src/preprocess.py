@@ -50,8 +50,10 @@ def calculate_macd(prices, fast=12, slow=26, signal=9):
     macd[np.isnan(macd)] = 0
     signal_line[np.isnan(signal_line)] = 0
 
-    macd = (macd - np.mean(macd)) / np.std(macd)
-    signal_line = (signal_line - np.mean(signal_line)) / np.std(signal_line)
+    macd = (macd - macd.min()) / (macd.max() - macd.min())
+    signal_line = (signal_line - signal_line.min()) / (
+        signal_line.max() - signal_line.min()
+    )
 
     return np.stack([macd, signal_line], axis=1)
 
