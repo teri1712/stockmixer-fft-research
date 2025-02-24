@@ -7,6 +7,8 @@ from evaluator import evaluate
 from model import get_loss, StockMixer
 import pickle
 
+from preprocess import append_technical_indicators
+
 
 np.random.seed(123456789)
 torch.random.manual_seed(12345678)
@@ -52,6 +54,8 @@ else:
     with open(os.path.join(dataset_path, "price_data.pkl"), "rb") as f:
         price_data = pickle.load(f)
 
+eod_data = append_technical_indicators(eod_data)
+fea_num = eod_data.shape[2]
 trade_dates = mask_data.shape[1]
 model = StockMixer(
     stocks=stock_num,
