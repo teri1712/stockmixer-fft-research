@@ -17,6 +17,7 @@ def calculate_rsi(prices, window=14):
         avg_loss[i] = (avg_loss[i - 1] * (window - 1) + loss[i]) / window
 
     rs = avg_gain / avg_loss
+
     rsi = 100 - (100 / (1 + rs))
     return rsi
 
@@ -54,12 +55,13 @@ def append_technical_indicators(stock_prices):
     close_prices = stock_prices[:, :, 3]
     rsi = np.apply_along_axis(calculate_rsi, axis=1, arr=close_prices)
     rsi = np.expand_dims(rsi, axis=-1)
-    rsi[np.isnan(rsi)] = 0
+    rsi[np.isnan(rsi)] = 50
     mca = np.apply_along_axis(
         calculate_macd,
         axis=1,
         arr=close_prices,
     )
+
     mca[np.isnan(mca)] = 0
 
     return np.concatenate([stock_prices, rsi, mca], axis=2)
