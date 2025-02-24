@@ -64,4 +64,4 @@ def append_technical_indicators(stock_prices):
 
     mca[np.isnan(mca)] = 0
 
-    return np.concatenate([stock_prices, rsi, mca], axis=2)
+    return np.concatenate([stock_prices, mca], axis=2)
