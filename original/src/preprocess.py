@@ -70,24 +70,26 @@ def calculate_macd(prices, fast=12, slow=26, signal=9):
     macd[np.isnan(macd)] = 0
     signal_line[np.isnan(signal_line)] = 0
 
-    macd = (macd - np.mean(macd)) / np.std(macd)
-    signal_line = (signal_line - np.mean(signal_line)) / np.std(signal_line)
+    macd = (macd - macd.min()) / (macd.max() - macd.min())
+    signal_line = (signal_line - signal_line.min()) / (
+        signal_line.max() - signal_line.min()
+    )
 
-    return np.stack([signal_line], axis=1)
+    return np.stack([macd], axis=1)
 
 
 def append_technical_indicators(stock_prices):
     close_prices = stock_prices[:, :, 3]
     # rsi = np.apply_along_axis(calculate_rsi, axis=1, arr=close_prices)
     # rsi = np.expand_dims(rsi, axis=-1)
-    # macd = np.apply_along_axis(
-    #     calculate_macd,
-    #     axis=1,
-    #     arr=close_prices,
-    # )
-    bb = np.apply_along_axis(
-        calculate_bollinger_bands,
+    macd = np.apply_along_axis(
+        calculate_macd,
         axis=1,
         arr=close_prices,
     )
-    return np.concatenate([stock_prices, bb], axis=2)
+    # bb = np.apply_along_axis(
+    #     calculate_bollinger_bands,
+    #     axis=1,
+    #     arr=close_prices,
+    # )
+    return np.concatenate([stock_prices, macd], axis=2)
