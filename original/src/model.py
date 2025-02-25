@@ -66,7 +66,7 @@ class MixerBlock(nn.Module):
         y = self.ln(x)
         y = self.dense_3(y)
         y = self.sigmoid(y)
-        return x * y + x
+        return x * y
 
 
 class Mixer2d(nn.Module):
