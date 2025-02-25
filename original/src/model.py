@@ -50,6 +50,10 @@ class MixerBlock(nn.Module):
         self.LN = acv
         self.dense_2 = nn.Linear(hidden_dim, mlp_dim)
 
+        self.ln = nn.LayerNorm(mlp_dim)
+        self.sigmoid = nn.Sigmoid()
+        self.dense_3 = nn.Linear(mlp_dim, mlp_dim)
+
     def forward(self, x):
         x = self.dense_1(x)
         x = self.LN(x)
@@ -58,7 +62,11 @@ class MixerBlock(nn.Module):
         x = self.dense_2(x)
         if self.dropout != 0.0:
             x = F.dropout(x, p=self.dropout)
-        return x
+
+        y = self.ln(x)
+        y = self.dense_3(y)
+        y = self.sigmoid(y)
+        return x * y + x
 
 
 class Mixer2d(nn.Module):
@@ -141,28 +149,6 @@ class MultiScaleTimeMixer(nn.Module):
         y = self.mix_layer[0](x)
         for i in range(1, self.scale_count):
             y = torch.cat((y, self.mix_layer[i](x)), dim=-1)
-        return y
-
-
-class SEBlock(nn.Module):
-    def __init__(self, in_channels, reduction_ratio=1):
-        super(SEBlock, self).__init__()
-        self.avg_pool = nn.AdaptiveAvgPool1d(1)
-        self.fc1 = nn.Linear(in_channels, in_channels // reduction_ratio)
-        self.relu = nn.ReLU()
-        self.fc2 = nn.Linear(in_channels // reduction_ratio, in_channels)
-        self.sigmoid = nn.Sigmoid()
-
-    def forward(self, x):
-        z_squeeze = x.permute(0, 2, 1)
-
-        z_squeeze = self.avg_pool(z_squeeze)
-        z_squeeze = z_squeeze.permute(0, 2, 1)
-        z_excite = self.relu(self.fc1(z_squeeze))
-        z_excite = self.sigmoid(self.fc2(z_excite))
-
-        y = x * z_excite
-
         return y
 
 
