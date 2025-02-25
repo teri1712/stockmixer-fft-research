@@ -41,7 +41,7 @@ def calculate_rsi(prices, window=14):
     rsi = 100 - (100 / (1 + rs))
     rsi[np.isnan(rsi)] = 50
 
-    return (rsi - rsi.mean()) / rsi.std()
+    return (rsi - rsi.min()) / (rsi.max() - rsi.min())
 
 
 def calculate_macd(prices, fast=12, slow=26, signal=9):
@@ -80,16 +80,16 @@ def calculate_macd(prices, fast=12, slow=26, signal=9):
 
 def append_technical_indicators(stock_prices):
     close_prices = stock_prices[:, :, 3]
-    # rsi = np.apply_along_axis(calculate_rsi, axis=1, arr=close_prices)
-    # rsi = np.expand_dims(rsi, axis=-1)
-    macd = np.apply_along_axis(
-        calculate_macd,
-        axis=1,
-        arr=close_prices,
-    )
+    rsi = np.apply_along_axis(calculate_rsi, axis=1, arr=close_prices)
+    rsi = np.expand_dims(rsi, axis=-1)
+    # macd = np.apply_along_axis(
+    #     calculate_macd,
+    #     axis=1,
+    #     arr=close_prices,
+    # )
     # bb = np.apply_along_axis(
     #     calculate_bollinger_bands,
     #     axis=1,
     #     arr=close_prices,
     # )
-    return np.concatenate([stock_prices, macd], axis=2)
+    return np.concatenate([stock_prices, rsi], axis=2)
