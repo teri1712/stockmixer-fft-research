@@ -1,6 +1,43 @@
 import numpy as np
 
 
+def calculate_bollinger_bands(close_prices, window=20, num_std=2):
+    """
+    Calculate Bollinger Bands (upper, middle, lower).
+
+    Args:
+        close_prices: 1D array of closing prices (shape: [T]).
+        window: Rolling window size (default=20).
+        num_std: Number of standard deviations for bands (default=2).
+
+    Returns:
+        upper_band: Upper Bollinger Band.
+        middle_band: Simple Moving Average (SMA).
+        lower_band: Lower Bollinger Band.
+    """
+    # Calculate Simple Moving Average (SMA)
+    sma = np.full_like(close_prices, np.nan)
+    for i in range(window - 1, len(close_prices)):
+        sma[i] = np.mean(close_prices[i - window + 1 : i + 1])
+
+    # Calculate Rolling Standard Deviation
+    rolling_std = np.full_like(close_prices, np.nan)
+    for i in range(window - 1, len(close_prices)):
+        rolling_std[i] = np.std(close_prices[i - window + 1 : i + 1])
+
+    # Compute Bands
+    upper_band = sma + (rolling_std * num_std)
+    lower_band = sma - (rolling_std * num_std)
+    upper_band[np.isnan(upper_band)] = 0
+    lower_band[np.isnan(lower_band)] = 0
+    sma[np.isnan(sma)] = 0
+
+    upper_band = (upper_band - upper_band.mean()) / upper_band.std()
+    sma = (sma - sma.mean()) / sma.std()
+    lower_band = (lower_band - lower_band.mean()) / lower_band.std()
+    return np.stack([upper_band, sma, lower_band], axis=1)
+
+
 def calculate_rsi(prices, window=14):
     delta = np.diff(prices, prepend=np.nan)
     gain = np.where(delta > 0, delta, 0)
@@ -62,10 +99,14 @@ def append_technical_indicators(stock_prices):
     close_prices = stock_prices[:, :, 3]
     # rsi = np.apply_along_axis(calculate_rsi, axis=1, arr=close_prices)
     # rsi = np.expand_dims(rsi, axis=-1)
-    macd = np.apply_along_axis(
-        calculate_macd,
+    # macd = np.apply_along_axis(
+    #     calculate_macd,
+    #     axis=1,
+    #     arr=close_prices,
+    # )
+    bb = np.apply_along_axis(
+        calculate_bollinger_bands,
         axis=1,
         arr=close_prices,
     )
-
-    return np.concatenate([stock_prices, macd], axis=2)
+    return np.concatenate([stock_prices, bb], axis=2)
