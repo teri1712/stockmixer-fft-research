@@ -205,24 +205,67 @@ class NoGraphMixer(nn.Module):
         self.dense2 = nn.Linear(hidden_dim, stocks)
         self.layer_norm_stock = nn.LayerNorm(stocks)
 
-        self.dense3 = nn.Linear(stocks + hidden_dim, hidden_dim)
+        self.dense3 = nn.Linear(stocks, hidden_dim)
         self.gate = nn.Sigmoid()
 
     def forward(self, inputs):
-        inputs = inputs.permute(1, 0)
-        x = self.layer_norm_stock(inputs)
+        x = inputs
+        x = x.permute(1, 0)
+        x = self.layer_norm_stock(x)
+
+        y = self.dense3(x)
+        y = self.gate(y)
 
         x = self.dense1(x)
         x = self.activation(x)
-
-        y = self.dense3(torch.cat([x, inputs], dim=-1))
-        y = self.gate(y)
-
         x = x * y
 
         x = self.dense2(x)
         x = x.permute(1, 0)
         return x
+
+
+class CrossStockInformationMixer(nn.Module):
+    def __init__(self, stocks, hidden_dim=20):
+        super(CrossStockInformationMixer, self).__init__()
+        self.stock_embedding = nn.Linear(stocks, hidden_dim)
+        self.stock_context = nn.Linear(stocks, hidden_dim)
+
+        # Cross-stock interaction
+        self.ln = nn.LayerNorm(hidden_dim)
+        self.interaction = nn.Linear(hidden_dim, hidden_dim)
+        self.acv = nn.Hardswish()
+
+        self.gate = nn.Sigmoid()
+
+        # Output projection
+        self.proj = nn.Linear(hidden_dim, stocks)
+        self.layer_norm = nn.LayerNorm(stocks)
+
+    def forward(self, inputs):
+        # inputs: [time_steps, stocks]
+        x = inputs.permute(1, 0)  # [stocks, time_steps]
+        residual = x
+
+        # Normalize input
+        x = self.layer_norm(x)
+
+        # Stock embeddings
+        stock_emb = self.stock_embedding(x)
+        stock_ctx = self.stock_context(x)
+
+        # Compute interaction
+        interaction = self.interaction(stock_emb)
+        gate = self.gate(stock_ctx)
+
+        # Apply gating mechanism
+        gated_interaction = interaction * gate
+
+        # Project back to stock dimension
+        out = self.proj(gated_interaction)
+        out = out + residual  # Add residual connection
+
+        return out.permute(1, 0)  # Back to [time_steps, stocks]
 
 
 # class ScaleBlock(nn.Module):
