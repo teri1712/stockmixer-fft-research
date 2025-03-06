@@ -1,19 +1,17 @@
-import random
-import numpy as np
 import os
+import pickle
+import random
+
+import numpy as np
 import torch as torch
-from load_data import load_EOD_data
+
 from evaluator import evaluate
 from model import get_loss, StockMixer
-import pickle
-
 from preprocess import append_technical_indicators
-
 
 np.random.seed(123456789)
 torch.random.manual_seed(12345678)
 device = torch.device("cuda") if torch.cuda.is_available() else "cpu"
-
 
 data_path = "../dataset"
 market_name = "NASDAQ"
@@ -42,8 +40,8 @@ if market_name == "SP500":
     for ticket in range(0, data.shape[0]):
         for row in range(1, data.shape[1]):
             gt_data[ticket][row] = (
-                data[ticket][row][-1] - data[ticket][row - steps][-1]
-            ) / data[ticket][row - steps][-1]
+                                           data[ticket][row][-1] - data[ticket][row - steps][-1]
+                                   ) / data[ticket][row - steps][-1]
 else:
     with open(os.path.join(dataset_path, "eod_data.pkl"), "rb") as f:
         eod_data = pickle.load(f)
@@ -54,7 +52,7 @@ else:
     with open(os.path.join(dataset_path, "price_data.pkl"), "rb") as f:
         price_data = pickle.load(f)
 
-# eod_data = append_technical_indicators(eod_data)
+eod_data = append_technical_indicators(eod_data)
 # print(eod_data)
 fea_num = eod_data.shape[2]
 trade_dates = mask_data.shape[1]
@@ -82,8 +80,8 @@ def validate(start_index, end_index):
         reg_loss = 0.0
         rank_loss = 0.0
         for cur_offset in range(
-            start_index - lookback_length - steps + 1,
-            end_index - lookback_length - steps + 1,
+                start_index - lookback_length - steps + 1,
+                end_index - lookback_length - steps + 1,
         ):
             data_batch, mask_batch, price_batch, gt_batch = map(
                 lambda x: torch.Tensor(x).to(device), get_batch(cur_offset)
@@ -96,13 +94,13 @@ def validate(start_index, end_index):
             reg_loss += cur_reg_loss.item()
             rank_loss += cur_rank_loss.item()
             cur_valid_pred[
-                :, cur_offset - (start_index - lookback_length - steps + 1)
+            :, cur_offset - (start_index - lookback_length - steps + 1)
             ] = cur_rr[:, 0].cpu()
             cur_valid_gt[
-                :, cur_offset - (start_index - lookback_length - steps + 1)
+            :, cur_offset - (start_index - lookback_length - steps + 1)
             ] = gt_batch[:, 0].cpu()
             cur_valid_mask[
-                :, cur_offset - (start_index - lookback_length - steps + 1)
+            :, cur_offset - (start_index - lookback_length - steps + 1)
             ] = mask_batch[:, 0].cpu()
         loss = loss / (end_index - start_index)
         reg_loss = reg_loss / (end_index - start_index)
@@ -115,10 +113,10 @@ def get_batch(offset=None):
     if offset is None:
         offset = random.randrange(0, valid_index)
     seq_len = lookback_length
-    mask_batch = mask_data[:, offset : offset + seq_len + steps]
+    mask_batch = mask_data[:, offset: offset + seq_len + steps]
     mask_batch = np.min(mask_batch, axis=1)
     return (
-        eod_data[:, offset : offset + seq_len, :],
+        eod_data[:, offset: offset + seq_len, :],
         np.expand_dims(mask_batch, axis=1),
         np.expand_dims(price_data[:, offset + seq_len - 1], axis=1),
         np.expand_dims(gt_data[:, offset + seq_len + steps - 1], axis=1),

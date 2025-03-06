@@ -197,44 +197,32 @@ class MultTime2dMixer(nn.Module):
         return torch.cat([inputs, x, x1], dim=1)
 
 
-class CrossStockInformationMixer(nn.Module):
+class NoGraphMixer(nn.Module):
     def __init__(self, stocks, hidden_dim=20):
-        super(CrossStockInformationMixer, self).__init__()
-        self.stock_embedding = nn.Linear(stocks, hidden_dim)
-        self.stock_context = nn.Linear(stocks, hidden_dim)
+        super(NoGraphMixer, self).__init__()
+        self.dense1 = nn.Linear(stocks, hidden_dim)
+        self.activation = nn.Hardswish()
+        self.dense2 = nn.Linear(hidden_dim, stocks)
+        self.layer_norm_stock = nn.LayerNorm(stocks)
 
-        # Cross-stock interaction
-        self.interaction = nn.Linear(hidden_dim, hidden_dim)
+        self.dense3 = nn.Linear(stocks + hidden_dim, hidden_dim)
         self.gate = nn.Sigmoid()
 
-        # Output projection
-        self.proj = nn.Linear(hidden_dim, stocks)
-        self.layer_norm = nn.LayerNorm(stocks)
-
     def forward(self, inputs):
-        # inputs: [time_steps, stocks]
-        x = inputs.permute(1, 0)  # [stocks, time_steps]
-        residual = x
+        inputs = inputs.permute(1, 0)
+        x = self.layer_norm_stock(inputs)
 
-        # Normalize input
-        x = self.layer_norm(x)
+        x = self.dense1(x)
+        x = self.activation(x)
 
-        # Stock embeddings
-        stock_emb = self.stock_embedding(x)
-        stock_ctx = self.stock_context(x)
+        y = self.dense3(torch.cat([x, inputs], dim=-1))
+        y = self.gate(y)
 
-        # Compute interaction
-        interaction = self.interaction(stock_emb)
-        gate = self.gate(stock_ctx)
+        x = x * y
 
-        # Apply gating mechanism
-        gated_interaction = interaction * gate
-
-        # Project back to stock dimension
-        out = self.proj(gated_interaction)
-        out = out + residual  # Add residual connection
-
-        return out.permute(1, 0)  # Back to [time_steps, stocks]
+        x = self.dense2(x)
+        x = x.permute(1, 0)
+        return x
 
 
 # class ScaleBlock(nn.Module):
@@ -263,7 +251,7 @@ class StockMixer(nn.Module):
         self.channel_fc = nn.Linear(channels, 1)
         self.time_fc = nn.Linear(time_steps * 2 + time_steps // 2, 1)
         self.scale1 = nn.Conv1d(channels, channels, kernel_size=2, stride=2)
-        self.stock_mixer = CrossStockInformationMixer(stocks, market)
+        self.stock_mixer = NoGraphMixer(stocks, market)
         self.time_fc_ = nn.Linear(time_steps * 2 + time_steps // 2, 1)
 
     def forward(self, inputs):
