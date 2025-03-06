@@ -79,7 +79,7 @@ def calculate_macd(prices, fast=12, slow=26, signal=9):
 
 
 def append_technical_indicators(stock_prices):
-    close_prices = stock_prices[:, :, 1]
+    close_prices = stock_prices[:, :, 2]
     rsi = np.apply_along_axis(calculate_rsi, axis=1, arr=close_prices)
     rsi = np.expand_dims(rsi, axis=-1)
     # macd = np.apply_along_axis(
