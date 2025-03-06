@@ -1,4 +1,5 @@
 import math
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -28,7 +29,7 @@ class PositionalEmbedding(nn.Module):
 
         position = torch.arange(0, max_len).float().unsqueeze(1)
         div_term = (
-            torch.arange(0, d_model, 2).float() * -(math.log(10000.0) / d_model)
+                torch.arange(0, d_model, 2).float() * -(math.log(10000.0) / d_model)
         ).exp()
         pe[:, 0::2] = torch.sin(position * div_term)
         pe[:, 1::2] = torch.cos(position * div_term)
@@ -89,7 +90,7 @@ class TriU(nn.Module):
     def forward(self, inputs):
         x = self.triU[0](inputs[:, :, 0].unsqueeze(-1))
         for i in range(1, self.time_step):
-            x = torch.cat([x, self.triU[i](inputs[:, :, 0 : i + 1])], dim=-1)
+            x = torch.cat([x, self.triU[i](inputs[:, :, 0: i + 1])], dim=-1)
         return x
 
 
@@ -119,12 +120,12 @@ class MultiScaleTimeMixer(nn.Module):
                     nn.Conv1d(
                         in_channels=channel,
                         out_channels=channel,
-                        kernel_size=2**i,
-                        stride=2**i,
+                        kernel_size=2 ** i,
+                        stride=2 ** i,
                     ),
-                    TriU(int(time_step / 2**i)),
+                    TriU(int(time_step / 2 ** i)),
                     nn.Hardswish(),
-                    TriU(int(time_step / 2**i)),
+                    TriU(int(time_step / 2 ** i)),
                 )
                 for i in range(scale_count)
             ]
@@ -204,19 +205,19 @@ class NoGraphMixer(nn.Module):
         self.dense2 = nn.Linear(hidden_dim, stocks)
         self.layer_norm_stock = nn.LayerNorm(stocks)
 
-        self.dense3 = nn.Linear(stocks, hidden_dim)
+        self.dense3 = nn.Linear(stocks + hidden_dim, hidden_dim)
         self.gate = nn.Sigmoid()
 
     def forward(self, inputs):
-        x = inputs
-        x = x.permute(1, 0)
-        x = self.layer_norm_stock(x)
-
-        y = self.dense3(x)
-        y = self.gate(y)
+        inputs = inputs.permute(1, 0)
+        x = self.layer_norm_stock(inputs)
 
         x = self.dense1(x)
         x = self.activation(x)
+
+        y = self.dense3(torch.cat([x, inputs], dim=-1))
+        y = self.gate(y)
+
         x = x * y
 
         x = self.dense2(x)
