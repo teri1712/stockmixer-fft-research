@@ -294,7 +294,7 @@ class StockMixer(nn.Module):
         self.channel_fc = nn.Linear(channels, 1)
         self.time_fc = nn.Linear(time_steps * 2 + time_steps // 2, 1)
         self.scale1 = nn.Conv1d(channels, channels, kernel_size=2, stride=2)
-        self.stock_mixer = CrossStockInformationMixer(stocks, market)
+        self.stock_mixer = NoGraphMixer(stocks, market)
         self.time_fc_ = nn.Linear(time_steps * 2 + time_steps // 2, 1)
 
     def forward(self, inputs):
