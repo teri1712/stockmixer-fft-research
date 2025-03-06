@@ -245,13 +245,14 @@ class CrossStockInformationMixer(nn.Module):
     def forward(self, inputs):
         # inputs: [time_steps, stocks]
         x = inputs.permute(1, 0)  # [stocks, time_steps]
-        residual = x
 
         # Normalize input
         x = self.layer_norm(x)
 
         # Stock embeddings
         stock_emb = self.stock_embedding(x)
+        stock_emb = self.acv(stock_emb)
+
         stock_ctx = self.stock_context(x)
 
         # Compute interaction
@@ -263,7 +264,6 @@ class CrossStockInformationMixer(nn.Module):
 
         # Project back to stock dimension
         out = self.proj(gated_interaction)
-        out = out + residual  # Add residual connection
 
         return out.permute(1, 0)  # Back to [time_steps, stocks]
 
@@ -294,7 +294,7 @@ class StockMixer(nn.Module):
         self.channel_fc = nn.Linear(channels, 1)
         self.time_fc = nn.Linear(time_steps * 2 + time_steps // 2, 1)
         self.scale1 = nn.Conv1d(channels, channels, kernel_size=2, stride=2)
-        self.stock_mixer = NoGraphMixer(stocks, market)
+        self.stock_mixer = CrossStockInformationMixer(stocks, market)
         self.time_fc_ = nn.Linear(time_steps * 2 + time_steps // 2, 1)
 
     def forward(self, inputs):
