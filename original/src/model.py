@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from gMLP import gMLP
+from src.gMLP import gMLP
 
 acv = nn.GELU()
 
@@ -254,7 +254,7 @@ class NoGraphMixer(nn.Module):
         x = x.unsqueeze(0)
 
         x = self.gMlp(x)
-        
+
         x = x.squeeze(0).permute(1, 0)
 
         return x
