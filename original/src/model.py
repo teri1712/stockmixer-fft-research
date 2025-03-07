@@ -85,21 +85,21 @@ class TimeMixing(nn.Module):
     def __init__(self, hidden_dim):
         super().__init__()
         self.layer_norm = nn.LayerNorm(hidden_dim)
-        self.mlp1 = nn.Linear(hidden_dim, hidden_dim * 4)
-        self.mlp2 = nn.Linear(hidden_dim * 4, hidden_dim)
+        self.mlp1 = nn.Linear(hidden_dim, hidden_dim * 2)
+        self.mlp2 = nn.Linear(hidden_dim * 2, 1)
         self.gate = nn.Sequential(
-            nn.Linear(hidden_dim, hidden_dim),
+            nn.Linear(hidden_dim, hidden_dim * 2),
             nn.Sigmoid()
         )
+        self.acv = nn.ReLU()
 
     def forward(self, x):
-        # Triangular mask for temporal causality (as in original code)
-        residual = x
         x = self.layer_norm(x)
-        x = self.mlp2(F.hardswish(self.mlp1(x)))
-        # Apply sigmoid gate to residual
         gate = self.gate(x)
-        return residual * gate
+        x = self.acv(self.mlp1(x))
+
+        x = self.mlp2(x * gate)
+        return x
 
 
 class TriU(nn.Module):
@@ -107,10 +107,7 @@ class TriU(nn.Module):
         super(TriU, self).__init__()
         self.time_step = time_step
         self.triU = nn.ParameterList([
-            nn.Sequential(
-                TimeMixing(i + 1),
-                nn.Linear(i + 1, 1)
-            )
+            TimeMixing(i + 1)
             for i in range(time_step)])
 
     def forward(self, inputs):
