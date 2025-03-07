@@ -4,6 +4,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from gMLP import gMLP
+
 acv = nn.GELU()
 
 
@@ -107,7 +109,7 @@ class TriU(nn.Module):
         super(TriU, self).__init__()
         self.time_step = time_step
         self.triU = nn.ParameterList([
-            TimeMixing(i + 1)
+            nn.Linear(i + 1, 1)
             for i in range(time_step)])
 
     def forward(self, inputs):
@@ -221,158 +223,41 @@ class MultTime2dMixer(nn.Module):
 
 
 class NoGraphMixer(nn.Module):
-    def __init__(self, stocks, hidden_dim=20):
+    def __init__(self, total_time_step, stocks, hidden_dim=20):
         super(NoGraphMixer, self).__init__()
-        self.dense1 = nn.Linear(stocks, hidden_dim)
-        self.activation = nn.Hardswish()
-        self.dense2 = nn.Linear(hidden_dim, stocks)
-        self.layer_norm_stock = nn.LayerNorm(stocks)
+        # self.dense1 = nn.Linear(stocks, hidden_dim)
+        # self.activation = nn.Hardswish()
+        # self.dense2 = nn.Linear(hidden_dim, stocks)
+        # self.layer_norm_stock = nn.LayerNorm(stocks)
+        #
+        # self.dense3 = nn.Linear(stocks, hidden_dim)
+        # self.gate = nn.Sigmoid()
 
-        self.dense3 = nn.Linear(stocks, hidden_dim)
-        self.gate = nn.Sigmoid()
+        self.gMlp = gMLP(total_time_step, stocks, hidden_dim)
 
     def forward(self, inputs):
-        x = inputs
-        x = x.permute(1, 0)
-        x = self.layer_norm_stock(x)
+        # x = inputs
+        # x = x.permute(1, 0)
+        # x = self.layer_norm_stock(x)
+        #
+        # y = self.dense3(x)
+        # y = self.gate(y)
+        #
+        # x = self.dense1(x)
+        # x = self.activation(x)
+        # x = x * y
+        #
+        # x = self.dense2(x)
+        # x = x.permute(1, 0)
 
-        y = self.dense3(x)
-        y = self.gate(y)
+        x = inputs.permute(1, 0)
+        x = x.unsqueeze(0)
 
-        x = self.dense1(x)
-        x = self.activation(x)
-        x = x * y
+        x = self.gMlp(x)
+        
+        x = x.squeeze(0).permute(1, 0)
 
-        x = self.dense2(x)
-        x = x.permute(1, 0)
         return x
-
-
-class CrossStockInformationMixer(nn.Module):
-    def __init__(self, stocks, hidden_dim=20):
-        super(CrossStockInformationMixer, self).__init__()
-        self.stock_embedding = nn.Linear(stocks, hidden_dim)
-        self.stock_context = nn.Linear(stocks, hidden_dim)
-
-        # Cross-stock interaction
-        self.ln = nn.LayerNorm(hidden_dim)
-        self.interaction = nn.Linear(hidden_dim, hidden_dim)
-        self.acv = nn.Hardswish()
-
-        self.gate = nn.Sigmoid()
-
-        # Output projection
-        self.proj = nn.Linear(hidden_dim, stocks)
-        self.layer_norm = nn.LayerNorm(stocks)
-
-    def forward(self, inputs):
-        # inputs: [time_steps, stocks]
-        x = inputs.permute(1, 0)  # [stocks, time_steps]
-
-        # Normalize input
-        x = self.layer_norm(x)
-
-        # Stock embeddings
-        stock_emb = self.stock_embedding(x)
-        stock_emb = self.acv(stock_emb)
-
-        stock_ctx = self.stock_context(x)
-
-        # Compute interaction
-        interaction = self.interaction(stock_emb)
-        gate = self.gate(stock_ctx)
-
-        # Apply gating mechanism
-        gated_interaction = interaction * gate
-
-        # Project back to stock dimension
-        out = self.proj(gated_interaction)
-
-        return out.permute(1, 0)  # Back to [time_steps, stocks]
-
-
-# class ScaleBlock(nn.Module):
-#     def __init__(self, channels, scale):
-#         super(ScaleBlock, self).__init__()
-#         self.dense = nn.Conv1d(channels, 2 * channels, kernel_size=1, stride=1)
-#         self.sigmoid = nn.Sigmoid()
-#         self.scale = nn.Conv1d(channels, channels, kernel_size=scale, stride=scale)
-#         self.acv = nn.ReLU()
-
-#     def forward(self, inputs):
-#         x, y = self.dense(inputs).chunk(2, dim=1)
-#         x = self.acv(x)
-#         y = self.sigmoid(y)
-#         x = x * y
-#         x = self.scale(x)
-
-#         return x
-
-class EnhancedNoGraphMixer(nn.Module):
-    def __init__(self, input_dim, hidden_dim, dropout=0.1):
-        super().__init__()
-
-        # Stock feature extraction
-        self.stock_embed = nn.Sequential(
-            nn.Linear(input_dim, hidden_dim),
-            nn.ReLU(),
-            nn.LayerNorm(hidden_dim)
-        )
-
-        # Stock-specific MLPs
-        self.stock_mlp = nn.Sequential(
-            nn.Linear(hidden_dim, hidden_dim * 2),
-            nn.ReLU(),
-            nn.Dropout(dropout),
-            nn.Linear(hidden_dim * 2, hidden_dim),
-            nn.LayerNorm(hidden_dim)
-        )
-
-        # Cross-stock interaction using MLP
-        self.cross_stock_mlp = nn.Sequential(
-            nn.Linear(hidden_dim, hidden_dim * 2),
-            nn.ReLU(),
-            nn.Dropout(dropout),
-            nn.Linear(hidden_dim * 2, hidden_dim),
-            nn.LayerNorm(hidden_dim)
-        )
-
-        # MLP gating mechanism
-        self.gate = nn.Sequential(
-            nn.Linear(hidden_dim * 2, hidden_dim),
-            nn.Sigmoid()
-        )
-
-        # Output projection
-        self.output = nn.Linear(hidden_dim, 1)
-
-    def forward(self, x):
-        # x shape: [batch_size, time_steps, num_stocks, features]
-        batch_size, time_steps, num_stocks, feature_dim = x.shape
-
-        # Process last time step
-        x_last = x[:, -1, :, :]  # [batch_size, num_stocks, features]
-
-        # Embed each stock
-        stock_embeds = self.stock_embed(x_last)  # [batch_size, num_stocks, hidden_dim]
-
-        # Individual stock processing
-        stock_features = self.stock_mlp(stock_embeds)
-
-        # Cross-stock interaction (average other stocks)
-        cross_stock_avg = (torch.sum(stock_embeds, dim=1, keepdim=True) - stock_embeds) / (num_stocks - 1)
-        cross_features = self.cross_stock_mlp(cross_stock_avg)
-
-        # Gate mechanism to combine individual and cross-stock features
-        gate_input = torch.cat([stock_features, cross_features], dim=2)
-        gate = self.gate(gate_input)
-
-        # Combine features
-        combined = gate * stock_features + (1 - gate) * cross_features
-
-        # Generate predictions
-        predictions = self.output(combined)
-        return predictions
 
 
 class StockMixer(nn.Module):
@@ -383,7 +268,7 @@ class StockMixer(nn.Module):
         self.channel_fc = nn.Linear(channels, 1)
         self.time_fc = nn.Linear(time_steps * 2 + time_steps // 2, 1)
         self.scale1 = nn.Conv1d(channels, channels, kernel_size=2, stride=2)
-        self.stock_mixer = NoGraphMixer(stocks, market)
+        self.stock_mixer = NoGraphMixer(time_steps * 2 + time_steps // 2, stocks, market)
         self.time_fc_ = nn.Linear(time_steps * 2 + time_steps // 2, 1)
 
     def forward(self, inputs):
