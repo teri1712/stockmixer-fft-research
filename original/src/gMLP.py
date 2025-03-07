@@ -65,7 +65,7 @@ class gMLP(nn.Module):
             input_dim,
             dim=128,
             depth=6,
-            expansion_factor=4,
+            expansion_factor=2,
             dropout_rate=0.1
     ):
         super().__init__()
