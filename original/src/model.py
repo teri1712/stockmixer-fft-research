@@ -81,11 +81,37 @@ class Mixer2d(nn.Module):
         return x + y
 
 
+class TimeMixing(nn.Module):
+    def __init__(self, hidden_dim):
+        super().__init__()
+        self.layer_norm = nn.LayerNorm(hidden_dim)
+        self.mlp1 = nn.Linear(hidden_dim, hidden_dim * 4)
+        self.mlp2 = nn.Linear(hidden_dim * 4, hidden_dim)
+        self.gate = nn.Sequential(
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.Sigmoid()
+        )
+
+    def forward(self, x):
+        # Triangular mask for temporal causality (as in original code)
+        residual = x
+        x = self.layer_norm(x)
+        x = self.mlp2(F.hardswish(self.mlp1(x)))
+        # Apply sigmoid gate to residual
+        gate = self.gate(x)
+        return residual * (1 - gate) + x * gate
+
+
 class TriU(nn.Module):
     def __init__(self, time_step):
         super(TriU, self).__init__()
         self.time_step = time_step
-        self.triU = nn.ParameterList([nn.Linear(i + 1, 1) for i in range(time_step)])
+        self.triU = nn.ParameterList([
+            nn.Sequential(
+                TimeMixing(i + 1),
+                nn.Linear(i + 1, 1)
+            )
+            for i in range(time_step)])
 
     def forward(self, inputs):
         x = self.triU[0](inputs[:, :, 0].unsqueeze(-1))
@@ -284,6 +310,72 @@ class CrossStockInformationMixer(nn.Module):
 #         x = self.scale(x)
 
 #         return x
+
+class EnhancedNoGraphMixer(nn.Module):
+    def __init__(self, input_dim, hidden_dim, dropout=0.1):
+        super().__init__()
+
+        # Stock feature extraction
+        self.stock_embed = nn.Sequential(
+            nn.Linear(input_dim, hidden_dim),
+            nn.ReLU(),
+            nn.LayerNorm(hidden_dim)
+        )
+
+        # Stock-specific MLPs
+        self.stock_mlp = nn.Sequential(
+            nn.Linear(hidden_dim, hidden_dim * 2),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(hidden_dim * 2, hidden_dim),
+            nn.LayerNorm(hidden_dim)
+        )
+
+        # Cross-stock interaction using MLP
+        self.cross_stock_mlp = nn.Sequential(
+            nn.Linear(hidden_dim, hidden_dim * 2),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(hidden_dim * 2, hidden_dim),
+            nn.LayerNorm(hidden_dim)
+        )
+
+        # MLP gating mechanism
+        self.gate = nn.Sequential(
+            nn.Linear(hidden_dim * 2, hidden_dim),
+            nn.Sigmoid()
+        )
+
+        # Output projection
+        self.output = nn.Linear(hidden_dim, 1)
+
+    def forward(self, x):
+        # x shape: [batch_size, time_steps, num_stocks, features]
+        batch_size, time_steps, num_stocks, feature_dim = x.shape
+
+        # Process last time step
+        x_last = x[:, -1, :, :]  # [batch_size, num_stocks, features]
+
+        # Embed each stock
+        stock_embeds = self.stock_embed(x_last)  # [batch_size, num_stocks, hidden_dim]
+
+        # Individual stock processing
+        stock_features = self.stock_mlp(stock_embeds)
+
+        # Cross-stock interaction (average other stocks)
+        cross_stock_avg = (torch.sum(stock_embeds, dim=1, keepdim=True) - stock_embeds) / (num_stocks - 1)
+        cross_features = self.cross_stock_mlp(cross_stock_avg)
+
+        # Gate mechanism to combine individual and cross-stock features
+        gate_input = torch.cat([stock_features, cross_features], dim=2)
+        gate = self.gate(gate_input)
+
+        # Combine features
+        combined = gate * stock_features + (1 - gate) * cross_features
+
+        # Generate predictions
+        predictions = self.output(combined)
+        return predictions
 
 
 class StockMixer(nn.Module):
