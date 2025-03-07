@@ -99,7 +99,7 @@ class TimeMixing(nn.Module):
         x = self.mlp2(F.hardswish(self.mlp1(x)))
         # Apply sigmoid gate to residual
         gate = self.gate(x)
-        return residual * (1 - gate) + x * gate
+        return residual * gate
 
 
 class TriU(nn.Module):
