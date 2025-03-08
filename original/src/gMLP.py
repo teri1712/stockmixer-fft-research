@@ -7,10 +7,7 @@ class SpatialGatingUnit(nn.Module):
         super().__init__()
         self.norm = nn.LayerNorm(dim)
         self.spatial_proj = nn.Linear(seq_len, seq_len)
-
-        # Initialize with zeros to start with identity mapping
-        nn.init.zeros_(self.spatial_proj.weight)
-        nn.init.ones_(self.spatial_proj.bias)
+        self.sigmoid = nn.Sigmoid()
 
     def forward(self, x):
         # Split channels
@@ -21,6 +18,7 @@ class SpatialGatingUnit(nn.Module):
         v = v.transpose(-1, -2)  # [batch, dim, seq_len]
 
         v = self.spatial_proj(v)  # [batch, dim, seq_len]
+        v = self.sigmoid(v)
         v = v.transpose(-1, -2)  # [batch, seq_len, dim]
 
         # Element-wise multiplication with u
@@ -64,8 +62,8 @@ class gMLP(nn.Module):
             seq_len,
             input_dim,
             dim=128,
-            depth=16,
-            expansion_factor=2,
+            depth=8,
+            expansion_factor=4,
             dropout_rate=0.1
     ):
         super().__init__()
