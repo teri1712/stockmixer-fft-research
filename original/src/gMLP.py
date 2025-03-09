@@ -62,7 +62,7 @@ class gMLP(nn.Module):
             seq_len,
             input_dim,
             dim=128,
-            depth=8,
+            depth=16,
             expansion_factor=2,
             dropout_rate=0.1
     ):
