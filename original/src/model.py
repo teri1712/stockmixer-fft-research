@@ -223,8 +223,9 @@ class MultTime2dMixer(nn.Module):
 
 
 class NoGraphMixer(nn.Module):
-    def __init__(self, total_time_step, stocks, hidden_dim=20):
+    def __init__(self, time_step, stocks, hidden_dim=20):
         super(NoGraphMixer, self).__init__()
+        self.time_step = time_step
         # self.dense1 = nn.Linear(stocks, hidden_dim)
         # self.activation = nn.Hardswish()
         # self.dense2 = nn.Linear(hidden_dim, stocks)
@@ -233,9 +234,12 @@ class NoGraphMixer(nn.Module):
         # self.dense3 = nn.Linear(stocks, hidden_dim)
         # self.gate = nn.Sigmoid()
 
-        self.gMlp = gMLP(total_time_step, stocks, hidden_dim)
+        self.gMlp0 = gMLP(time_step, stocks, hidden_dim)
+        self.gMlp1 = gMLP(time_step, stocks, hidden_dim)
+        self.gMlp2 = gMLP(time_step // 2, stocks, hidden_dim)
 
     def forward(self, inputs):
+        [x0, x1, x2] = torch.split(inputs, [self.time_step, self.time_step, self.time_step // 2], dim=-1)
         # x = inputs
         # x = x.permute(1, 0)
         # x = self.layer_norm_stock(x)
@@ -250,14 +254,27 @@ class NoGraphMixer(nn.Module):
         # x = self.dense2(x)
         # x = x.permute(1, 0)
 
-        x = inputs.permute(1, 0)
-        x = x.unsqueeze(0)
+        x0 = x0.permute(1, 0)
+        x0 = x0.unsqueeze(0)
 
-        x = self.gMlp(x)
+        x0 = self.gMlp0(x0)
 
-        x = x.squeeze(0).permute(1, 0)
+        x0 = x0.squeeze(0).permute(1, 0)
 
-        return x
+        x1 = x1.permute(1, 0)
+        x1 = x1.unsqueeze(0)
+
+        x1 = self.gMlp1(x1)
+
+        x1 = x1.squeeze(0).permute(1, 0)
+
+        x2 = x2.permute(1, 0)
+        x2 = x2.unsqueeze(0)
+
+        x2 = self.gMlp2(x2)
+
+        x2 = x2.squeeze(0).permute(1, 0)
+        return torch.cat([x0, x1, x2], dim=-1)
 
 
 class StockMixer(nn.Module):
@@ -268,7 +285,7 @@ class StockMixer(nn.Module):
         self.channel_fc = nn.Linear(channels, 1)
         self.time_fc = nn.Linear(time_steps * 2 + time_steps // 2, 1)
         self.scale1 = nn.Conv1d(channels, channels, kernel_size=2, stride=2)
-        self.stock_mixer = NoGraphMixer(time_steps * 2 + time_steps // 2, stocks, market)
+        self.stock_mixer = NoGraphMixer(time_steps, stocks, market)
         self.time_fc_ = nn.Linear(time_steps * 2 + time_steps // 2, 1)
 
     def forward(self, inputs):
