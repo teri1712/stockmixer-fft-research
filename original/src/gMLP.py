@@ -50,7 +50,7 @@ class gMLPBlock(nn.Module):
 
         # Second projection and dropout
         x = self.channel_proj2(x)
-        x = self.dropout(x)
+        # x = self.dropout(x)
 
         # Add residual connection
         return x + residual
@@ -63,7 +63,7 @@ class gMLP(nn.Module):
             input_dim,
             dim=128,
             depth=4,
-            expansion_factor=4,
+            expansion_factor=2,
             dropout_rate=0.1
     ):
         super().__init__()
