@@ -37,7 +37,7 @@ class gMLPBlock(nn.Module):
         self.dropout = nn.Dropout(dropout_rate)
 
     def forward(self, x):
-        residual = x
+        # residual = x
 
         # Norm and first projection
         x = self.norm(x)
@@ -52,7 +52,7 @@ class gMLPBlock(nn.Module):
         x = self.dropout(x)
 
         # Add residual connection
-        return x + residual
+        return x
 
 
 class gMLP(nn.Module):
