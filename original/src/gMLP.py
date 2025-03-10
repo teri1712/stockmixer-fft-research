@@ -51,7 +51,7 @@ class gMLPBlock(nn.Module):
         # x = self.dropout(x)
 
         # Add residual connection
-        return x
+        return x + residual
 
 
 class gMLP(nn.Module):
