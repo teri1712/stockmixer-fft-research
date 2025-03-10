@@ -234,12 +234,10 @@ class NoGraphMixer(nn.Module):
         # self.dense3 = nn.Linear(stocks, hidden_dim)
         # self.gate = nn.Sigmoid()
 
-        self.gMlp0 = gMLP(time_step, stocks, hidden_dim)
-        self.gMlp1 = gMLP(time_step, stocks, hidden_dim)
-        self.gMlp2 = gMLP(time_step // 2, stocks, hidden_dim)
+        self.gMlp = gMLP(time_step * 2 + time_step // 2, stocks, hidden_dim)
 
     def forward(self, inputs):
-        [x0, x1, x2] = torch.split(inputs, [self.time_step, self.time_step, self.time_step // 2], dim=-1)
+        # [x0, x1, x2] = torch.split(inputs, [self.time_step, self.time_step, self.time_step // 2], dim=-1)
         # x = inputs
         # x = x.permute(1, 0)
         # x = self.layer_norm_stock(x)
@@ -254,27 +252,36 @@ class NoGraphMixer(nn.Module):
         # x = self.dense2(x)
         # x = x.permute(1, 0)
 
-        x0 = x0.permute(1, 0)
-        x0 = x0.unsqueeze(0)
+        # x0 = x0.permute(1, 0)
+        # x0 = x0.unsqueeze(0)
+        #
+        # x0 = self.gMlp0(x0)
+        #
+        # x0 = x0.squeeze(0).permute(1, 0)
+        #
+        # x1 = x1.permute(1, 0)
+        # x1 = x1.unsqueeze(0)
+        #
+        # x1 = self.gMlp1(x1)
+        #
+        # x1 = x1.squeeze(0).permute(1, 0)
+        #
+        # x2 = x2.permute(1, 0)
+        # x2 = x2.unsqueeze(0)
+        #
+        # x2 = self.gMlp2(x2)
+        #
+        # x2 = x2.squeeze(0).permute(1, 0)
 
-        x0 = self.gMlp0(x0)
+        x = inputs
+        x = x.permute(1, 0)
+        # x = x.unsqueeze(0)
 
-        x0 = x0.squeeze(0).permute(1, 0)
+        x = self.gMlp(x)
 
-        x1 = x1.permute(1, 0)
-        x1 = x1.unsqueeze(0)
+        x = x.permute(1, 0)
 
-        x1 = self.gMlp1(x1)
-
-        x1 = x1.squeeze(0).permute(1, 0)
-
-        x2 = x2.permute(1, 0)
-        x2 = x2.unsqueeze(0)
-
-        x2 = self.gMlp2(x2)
-
-        x2 = x2.squeeze(0).permute(1, 0)
-        return torch.cat([x0, x1, x2], dim=-1)
+        return x
 
 
 class StockMixer(nn.Module):
@@ -299,6 +306,6 @@ class StockMixer(nn.Module):
         y = self.channel_fc(y).squeeze(-1)
 
         z = self.stock_mixer(y)
-        # y = self.time_fc(y)
+        y = self.time_fc(y)
         z = self.time_fc_(z)
-        return z
+        return y + z
