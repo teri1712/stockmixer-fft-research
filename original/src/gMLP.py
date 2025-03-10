@@ -26,15 +26,14 @@ class SpatialGatingUnit(nn.Module):
 
 
 class gMLPBlock(nn.Module):
-    def __init__(self, dim, seq_len, expansion_factor=4, dropout_rate=0.0):
+    def __init__(self, input_dim, hidden_dim, seq_len, dropout_rate=0.0):
         super().__init__()
 
-        hidden_dim = dim * expansion_factor
-        self.norm = nn.LayerNorm(dim)
-        self.channel_proj1 = nn.Linear(dim, hidden_dim * 2)
-        self.activation = nn.GELU()
+        self.norm = nn.LayerNorm(input_dim)
+        self.channel_proj1 = nn.Linear(input_dim, hidden_dim * 2)
+        self.activation = nn.Hardswish()
         self.sgu = SpatialGatingUnit(hidden_dim, seq_len)
-        self.channel_proj2 = nn.Linear(hidden_dim, dim)
+        self.channel_proj2 = nn.Linear(hidden_dim, input_dim)
         self.dropout = nn.Dropout(dropout_rate)
 
     def forward(self, x):
@@ -50,7 +49,7 @@ class gMLPBlock(nn.Module):
 
         # Second projection and dropout
         x = self.channel_proj2(x)
-        # x = self.dropout(x)
+        x = self.dropout(x)
 
         # Add residual connection
         return x + residual
@@ -61,34 +60,22 @@ class gMLP(nn.Module):
             self,
             seq_len,
             input_dim,
-            dim=128,
-            depth=12,
-            expansion_factor=4,
+            hidden_dim=128,
+            depth=1,
             dropout_rate=0.1
     ):
         super().__init__()
-
-        self.proj_in = nn.Linear(input_dim, dim)
         self.blocks = nn.ModuleList([
             gMLPBlock(
-                dim=dim,
+                input_dim=input_dim,
+                hidden_dim=hidden_dim,
                 seq_len=seq_len,
-                expansion_factor=expansion_factor,
                 dropout_rate=dropout_rate
             )
             for _ in range(depth)
         ])
 
-        self.norm = nn.LayerNorm(dim)
-        self.proj_out = nn.Linear(dim, input_dim)
-
     def forward(self, x):
-        # Initial projection [batch, seq_len, input_dim] -> [batch, seq_len, dim]
-        x = self.proj_in(x)
-        # Process through gMLP blocks
         for block in self.blocks:
             x = block(x)
-
-        # Final normalization
-        x = self.norm(x)
-        return self.proj_out(x)
+        return x
