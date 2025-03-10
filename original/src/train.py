@@ -70,6 +70,7 @@ best_test_perf = None
 batch_offsets = np.arange(start=0, stop=valid_index, dtype=int)
 
 
+# Test
 def validate(start_index, end_index):
     with torch.no_grad():
         cur_valid_pred = np.zeros([stock_num, end_index - start_index], dtype=float)
