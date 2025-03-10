@@ -228,7 +228,7 @@ class NoGraphMixer(nn.Module):
         self.time_step = time_step
         # self.dense1 = nn.Linear(stocks, hidden_dim)
         # self.activation = nn.Hardswish()
-        # self.dense2 = nn.Linear(hidden_dim, stocks)
+        # self.dense2 = nn.Linear(hidden_dim , stocks)
         # self.layer_norm_stock = nn.LayerNorm(stocks)
         #
         # self.dense3 = nn.Linear(stocks, hidden_dim)
