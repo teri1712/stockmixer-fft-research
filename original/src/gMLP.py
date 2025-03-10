@@ -8,11 +8,12 @@ class SpatialGatingUnit(nn.Module):
         self.norm = nn.LayerNorm(dim)
         self.spatial_proj = nn.Linear(seq_len, seq_len)
         self.sigmoid = nn.Sigmoid()
+        self.acv = nn.Hardswish()
 
     def forward(self, x):
         # Split channels
         u, v = torch.chunk(x, chunks=2, dim=-1)
-
+        u = self.acv(u)
         # Apply normalization and spatial projection to v
         v = self.norm(v)
         v = v.transpose(-1, -2)  # [batch, dim, seq_len]
@@ -31,7 +32,6 @@ class gMLPBlock(nn.Module):
 
         self.norm = nn.LayerNorm(input_dim)
         self.channel_proj1 = nn.Linear(input_dim, hidden_dim * 2)
-        self.activation = nn.Hardswish()
         self.sgu = SpatialGatingUnit(hidden_dim, seq_len)
         self.channel_proj2 = nn.Linear(hidden_dim, input_dim)
         self.dropout = nn.Dropout(dropout_rate)
@@ -42,14 +42,13 @@ class gMLPBlock(nn.Module):
         # Norm and first projection
         x = self.norm(x)
         x = self.channel_proj1(x)
-        x = self.activation(x)
 
         # Apply spatial gating unit
         x = self.sgu(x)
 
         # Second projection and dropout
         x = self.channel_proj2(x)
-        x = self.dropout(x)
+        # x = self.dropout(x)
 
         # Add residual connection
         return x
