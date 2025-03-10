@@ -15,12 +15,12 @@ class SpatialGatingUnit(nn.Module):
         u, v = torch.chunk(x, chunks=2, dim=-1)
         u = self.acv(u)
         # Apply normalization and spatial projection to v
-        # v = self.norm(v)
-        # v = v.transpose(-1, -2)  # [batch, dim, seq_len]
-        #
-        # v = self.spatial_proj(v)  # [batch, dim, seq_len]
+        v = self.norm(v)
+        v = v.transpose(-1, -2)  # [batch, dim, seq_len]
+
+        v = self.spatial_proj(v)  # [batch, dim, seq_len]
         v = self.sigmoid(v)
-        # v = v.transpose(-1, -2)  # [batch, seq_len, dim]
+        v = v.transpose(-1, -2)  # [batch, seq_len, dim]
 
         # Element-wise multiplication with u
         return u * v
@@ -37,7 +37,7 @@ class gMLPBlock(nn.Module):
         self.dropout = nn.Dropout(dropout_rate)
 
     def forward(self, x):
-        # residual = x
+        residual = x
 
         # Norm and first projection
         x = self.norm(x)
@@ -51,7 +51,7 @@ class gMLPBlock(nn.Module):
         # x = self.dropout(x)
 
         # Add residual connection
-        return x
+        return x + residual
 
 
 class gMLP(nn.Module):
