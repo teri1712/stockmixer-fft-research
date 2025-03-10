@@ -6,7 +6,7 @@ class SpatialGatingUnit(nn.Module):
     def __init__(self, dim, seq_len):
         super().__init__()
         self.norm = nn.LayerNorm(dim)
-        self.spatial_proj = nn.Linear(seq_len, seq_len)
+        self.ln = nn.Linear(dim, dim)
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, x):
@@ -17,6 +17,7 @@ class SpatialGatingUnit(nn.Module):
         # v = v.transpose(-1, -2)  # [batch, dim, seq_len]
         #
         # v = self.spatial_proj(v)  # [batch, dim, seq_len]
+        v = self.ln(v)
         v = self.sigmoid(v)
         # v = v.transpose(-1, -2)  # [batch, seq_len, dim]
 
@@ -60,7 +61,7 @@ class gMLP(nn.Module):
             seq_len,
             input_dim,
             hidden_dim=128,
-            depth=10,
+            depth=5,
             dropout_rate=0.1
     ):
         super().__init__()
