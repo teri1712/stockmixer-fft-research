@@ -6,10 +6,11 @@ class SigmoidGatingUnit(nn.Module):
     def __init__(self, dim, seq_len):
         super().__init__()
         self.norm = nn.LayerNorm(dim)
-        self.ln = nn.Linear(dim, dim)
+        self.ln1 = nn.Linear(dim, dim // 2)
+        self.ln2 = nn.Linear(dim // 2, dim)
         self.sigmoid = nn.Sigmoid()
         self.dim = dim
-        self.acv = nn.Hardswish()
+        self.acv = nn.ReLU()
 
     def forward(self, x):
         # Split channels
@@ -19,8 +20,10 @@ class SigmoidGatingUnit(nn.Module):
         # v = v.transpose(-1, -2)  # [batch, dim, seq_len]
         #
         # v = self.spatial_proj(v)  # [batch, dim, seq_len]
-        # v = self.ln(v)
-        u = self.acv(u)
+        v = self.ln1(v)
+        v = self.acv(v)
+        v = self.ln2(v)
+        # u = self.acv(u)
         v = self.sigmoid(v)
         # v = v.transpose(-1, -2)  # [batch, seq_len, dim]
 
@@ -37,7 +40,7 @@ class gMLPBlock(nn.Module):
         self.sgu = SigmoidGatingUnit(hidden_dim, seq_len)
         self.channel_proj2 = nn.Linear(hidden_dim, input_dim)
         # self.dropout = nn.Dropout(dropout_rate)
-        # self.acv = nn.GELU()
+        self.acv = nn.Hardswish()
 
     def forward(self, x):
         residual = x
@@ -45,7 +48,7 @@ class gMLPBlock(nn.Module):
         # Norm and first projection
         x = self.norm(x)
         x = self.channel_proj1(x)
-        # x = self.acv(x)
+        x = self.acv(x)
 
         # Apply spatial gating unit
         x = self.sgu(x)
