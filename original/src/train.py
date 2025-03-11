@@ -24,8 +24,8 @@ epochs = 100
 valid_index = 756
 test_index = 1008
 fea_num = 5
-market_num = int(params[0])
-depth = int(params[1])
+market_num = 128
+depth = 2
 steps = 1
 learning_rate = 0.001
 alpha = 0.1
@@ -127,13 +127,13 @@ def get_batch(offset=None):
     )
 
 
-print("Training with parameters: ", "hidden_market=", market_num, "depth=", depth, "\n\n")
+# print("Training with parameters: ", "hidden_market=", market_num, "depth=", depth, "\n\n")
 for epoch in range(epochs):
-    # print(
-    #     "epoch{}##########################################################".format(
-    #         epoch + 1
-    #     )
-    # )
+    print(
+        "epoch{}##########################################################".format(
+            epoch + 1
+        )
+    )
     np.random.shuffle(batch_offsets)
     tra_loss = 0.0
     tra_reg_loss = 0.0
@@ -158,54 +158,54 @@ for epoch in range(epochs):
     tra_loss = tra_loss / (valid_index - lookback_length - steps + 1)
     tra_reg_loss = tra_reg_loss / (valid_index - lookback_length - steps + 1)
     tra_rank_loss = tra_rank_loss / (valid_index - lookback_length - steps + 1)
-    # print(
-    #     "Train : loss:{:.2e}  =  {:.2e} + alpha*{:.2e}".format(
-    #         tra_loss, tra_reg_loss, tra_rank_loss
-    #     )
-    # )
+    print(
+        "Train : loss:{:.2e}  =  {:.2e} + alpha*{:.2e}".format(
+            tra_loss, tra_reg_loss, tra_rank_loss
+        )
+    )
 
     val_loss, val_reg_loss, val_rank_loss, val_perf = validate(valid_index, test_index)
-    # print(
-    #     "Valid : loss:{:.2e}  =  {:.2e} + alpha*{:.2e}".format(
-    #         val_loss, val_reg_loss, val_rank_loss
-    #     )
-    # )
+    print(
+        "Valid : loss:{:.2e}  =  {:.2e} + alpha*{:.2e}".format(
+            val_loss, val_reg_loss, val_rank_loss
+        )
+    )
 
     test_loss, test_reg_loss, test_rank_loss, test_perf = validate(
         test_index, trade_dates
     )
-    # print(
-    #     "Test: loss:{:.2e}  =  {:.2e} + alpha*{:.2e}".format(
-    #         test_loss, test_reg_loss, test_rank_loss
-    #     )
-    # )
+    print(
+        "Test: loss:{:.2e}  =  {:.2e} + alpha*{:.2e}".format(
+            test_loss, test_reg_loss, test_rank_loss
+        )
+    )
 
     if val_loss < best_valid_loss:
         best_valid_loss = val_loss
         best_valid_perf = val_perf
         best_test_perf = test_perf
 
-    # print(
-    #     "Valid performance:\n",
-    #     "mse:{:.2e}, IC:{:.2e}, RIC:{:.2e}, prec@10:{:.2e}, SR:{:.2e}".format(
-    #         val_perf["mse"],
-    #         val_perf["IC"],
-    #         val_perf["RIC"],
-    #         val_perf["prec_10"],
-    #         val_perf["sharpe5"],
-    #     ),
-    # )
-    # print(
-    #     "Test performance:\n",
-    #     "mse:{:.2e}, IC:{:.2e}, RIC:{:.2e}, prec@10:{:.2e}, SR:{:.2e}".format(
-    #         test_perf["mse"],
-    #         test_perf["IC"],
-    #         test_perf["RIC"],
-    #         test_perf["prec_10"],
-    #         test_perf["sharpe5"],
-    #     ),
-    #     "\n\n",
-    # )
+    print(
+        "Valid performance:\n",
+        "mse:{:.2e}, IC:{:.2e}, RIC:{:.2e}, prec@10:{:.2e}, SR:{:.2e}".format(
+            val_perf["mse"],
+            val_perf["IC"],
+            val_perf["RIC"],
+            val_perf["prec_10"],
+            val_perf["sharpe5"],
+        ),
+    )
+    print(
+        "Test performance:\n",
+        "mse:{:.2e}, IC:{:.2e}, RIC:{:.2e}, prec@10:{:.2e}, SR:{:.2e}".format(
+            test_perf["mse"],
+            test_perf["IC"],
+            test_perf["RIC"],
+            test_perf["prec_10"],
+            test_perf["sharpe5"],
+        ),
+        "\n\n",
+    )
 
 print(
     "Final Test performance:\n",
