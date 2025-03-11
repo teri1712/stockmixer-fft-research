@@ -35,7 +35,7 @@ class gMLPBlock(nn.Module):
         self.sgu = SigmoidGatingUnit(hidden_dim, seq_len)
         self.channel_proj2 = nn.Linear(hidden_dim, input_dim)
         # self.dropout = nn.Dropout(dropout_rate)
-        self.acv = nn.Hardswish()
+        self.acv = nn.GELU()
 
     def forward(self, x):
         residual = x
@@ -66,7 +66,7 @@ class gMLP(nn.Module):
             dropout_rate=0.1
     ):
         super().__init__()
-        self.blocks = [
+        self.blocks = nn.ModuleList([
             gMLPBlock(
                 input_dim=input_dim,
                 hidden_dim=hidden_dim,
@@ -74,7 +74,7 @@ class gMLP(nn.Module):
                 dropout_rate=dropout_rate
             )
             for _ in range(depth)
-        ]
+        ])
 
     def forward(self, x):
         for block in self.blocks:
