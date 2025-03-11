@@ -223,7 +223,7 @@ class MultTime2dMixer(nn.Module):
 
 
 class NoGraphMixer(nn.Module):
-    def __init__(self, time_step, stocks, hidden_dim=20):
+    def __init__(self, time_step, stocks, hidden_dim=20, depth=2):
         super(NoGraphMixer, self).__init__()
         self.time_step = time_step
         # self.dense1 = nn.Linear(stocks, hidden_dim)
@@ -234,7 +234,7 @@ class NoGraphMixer(nn.Module):
         # self.dense3 = nn.Linear(stocks, hidden_dim)
         # self.gate = nn.Sigmoid()
 
-        self.gMlp = gMLP(time_step * 2 + time_step // 2, stocks, hidden_dim)
+        self.gMlp = gMLP(time_step * 2 + time_step // 2, stocks, hidden_dim, depth)
 
     def forward(self, inputs):
         # [x0, x1, x2] = torch.split(inputs, [self.time_step, self.time_step, self.time_step // 2], dim=-1)
@@ -285,14 +285,14 @@ class NoGraphMixer(nn.Module):
 
 
 class StockMixer(nn.Module):
-    def __init__(self, stocks, time_steps, channels, market, scale):
+    def __init__(self, stocks, time_steps, channels, market, depth=2):
         super(StockMixer, self).__init__()
         # self.ln = nn.LayerNorm(channels)
         self.mixer = MultTime2dMixer(time_steps, channels)
         self.channel_fc = nn.Linear(channels, 1)
         self.time_fc = nn.Linear(time_steps * 2 + time_steps // 2, 1)
         self.scale1 = nn.Conv1d(channels, channels, kernel_size=2, stride=2)
-        self.stock_mixer = NoGraphMixer(time_steps, stocks, market)
+        self.stock_mixer = NoGraphMixer(time_steps, stocks, market, depth)
         self.time_fc_ = nn.Linear(time_steps * 2 + time_steps // 2, 1)
 
     def forward(self, inputs):
@@ -308,4 +308,4 @@ class StockMixer(nn.Module):
         z = self.stock_mixer(y)
         y = self.time_fc(y)
         z = self.time_fc_(z)
-        return z + y
+        return y + z

@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 
 
-class SpatialGatingUnit(nn.Module):
+class SigmoidGatingUnit(nn.Module):
     def __init__(self, dim, seq_len):
         super().__init__()
         self.norm = nn.LayerNorm(dim)
@@ -31,7 +31,7 @@ class gMLPBlock(nn.Module):
 
         self.norm = nn.LayerNorm(input_dim)
         self.channel_proj1 = nn.Linear(input_dim, hidden_dim * 2)
-        self.sgu = SpatialGatingUnit(hidden_dim, seq_len)
+        self.sgu = SigmoidGatingUnit(hidden_dim, seq_len)
         self.channel_proj2 = nn.Linear(hidden_dim, input_dim)
         self.dropout = nn.Dropout(dropout_rate)
         self.acv = nn.Hardswish()
