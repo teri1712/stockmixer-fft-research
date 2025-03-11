@@ -66,7 +66,7 @@ class gMLP(nn.Module):
             dropout_rate=0.1
     ):
         super().__init__()
-        self.blocks = nn.ModuleList([
+        self.blocks = [
             gMLPBlock(
                 input_dim=input_dim,
                 hidden_dim=hidden_dim,
@@ -74,7 +74,7 @@ class gMLP(nn.Module):
                 dropout_rate=dropout_rate
             )
             for _ in range(depth)
-        ])
+        ]
 
     def forward(self, x):
         for block in self.blocks:
