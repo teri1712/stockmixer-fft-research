@@ -238,6 +238,7 @@ class NoGraphMixer(nn.Module):
 
     def forward(self, inputs):
         # [x0, x1, x2] = torch.split(inputs, [self.time_step, self.time_step, self.time_step // 2], dim=-1)
+
         # x = inputs
         # x = x.permute(1, 0)
         # x = self.layer_norm_stock(x)
@@ -251,27 +252,6 @@ class NoGraphMixer(nn.Module):
         #
         # x = self.dense2(x)
         # x = x.permute(1, 0)
-
-        # x0 = x0.permute(1, 0)
-        # x0 = x0.unsqueeze(0)
-        #
-        # x0 = self.gMlp0(x0)
-        #
-        # x0 = x0.squeeze(0).permute(1, 0)
-        #
-        # x1 = x1.permute(1, 0)
-        # x1 = x1.unsqueeze(0)
-        #
-        # x1 = self.gMlp1(x1)
-        #
-        # x1 = x1.squeeze(0).permute(1, 0)
-        #
-        # x2 = x2.permute(1, 0)
-        # x2 = x2.unsqueeze(0)
-        #
-        # x2 = self.gMlp2(x2)
-        #
-        # x2 = x2.squeeze(0).permute(1, 0)
 
         x = inputs
         x = x.permute(1, 0)
