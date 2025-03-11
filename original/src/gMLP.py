@@ -34,7 +34,7 @@ class gMLPBlock(nn.Module):
         self.channel_proj1 = nn.Linear(input_dim, hidden_dim * 2)
         self.sgu = SigmoidGatingUnit(hidden_dim, seq_len)
         self.channel_proj2 = nn.Linear(hidden_dim, input_dim)
-        # self.dropout = nn.Dropout(dropout_rate)
+        self.dropout = nn.Dropout(dropout_rate)
         self.acv = nn.Hardswish()
 
     def forward(self, x):
