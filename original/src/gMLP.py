@@ -50,7 +50,7 @@ class gMLPBlock(nn.Module):
 
         # Second projection and dropout
         x = self.channel_proj2(x)
-        # x = self.dropout(x)
+        x = self.dropout(x)
 
         # Add residual connection
         return x
