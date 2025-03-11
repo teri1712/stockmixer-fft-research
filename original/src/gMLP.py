@@ -8,10 +8,11 @@ class SigmoidGatingUnit(nn.Module):
         self.norm = nn.LayerNorm(dim)
         self.ln = nn.Linear(dim, dim)
         self.sigmoid = nn.Sigmoid()
+        self.dim = dim
 
     def forward(self, x):
         # Split channels
-        u, v = torch.chunk(x, chunks=2, dim=-1)
+        u, v = torch.split(x, [self.dim, self.dim], dim=-1)
         # Apply normalization and spatial projection to v
         # v = self.norm(v)
         # v = v.transpose(-1, -2)  # [batch, dim, seq_len]
