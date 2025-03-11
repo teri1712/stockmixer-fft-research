@@ -306,6 +306,6 @@ class StockMixer(nn.Module):
         y = self.channel_fc(y).squeeze(-1)
 
         z = self.stock_mixer(y)
-        # y = self.time_fc(y)
+        y = self.time_fc(y)
         z = self.time_fc_(z)
-        return z
+        return z + y

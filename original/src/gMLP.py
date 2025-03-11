@@ -52,7 +52,7 @@ class gMLPBlock(nn.Module):
         # x = self.dropout(x)
 
         # Add residual connection
-        return x + residual
+        return x
 
 
 class gMLP(nn.Module):
@@ -61,7 +61,7 @@ class gMLP(nn.Module):
             seq_len,
             input_dim,
             hidden_dim=128,
-            depth=16,
+            depth=3,
             dropout_rate=0.1
     ):
         super().__init__()
