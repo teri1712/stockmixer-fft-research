@@ -1,8 +1,6 @@
 import torch
 import torch.nn as nn
 
-import torch.nn.init as init
-
 
 class SigmoidGatingUnit(nn.Module):
     def __init__(self, dim, seq_len):
@@ -43,19 +41,6 @@ class gMLPBlock(nn.Module):
         self.channel_proj2 = nn.Linear(hidden_dim, input_dim)
         # self.dropout = nn.Dropout(dropout_rate)
         # self.acv = nn.Hardswish()
-        # Initialize weights
-        self._init_weights()
-
-    def _init_weights(self):
-        # Initialize channel projections with Xavier/Glorot initialization
-        init.xavier_uniform_(self.channel_proj1.weight)
-        init.xavier_uniform_(self.channel_proj2.weight)
-        init.zeros_(self.channel_proj1.bias)
-        init.zeros_(self.channel_proj2.bias)
-
-        # Initialize LayerNorm parameters
-        init.ones_(self.norm.weight)
-        init.zeros_(self.norm.bias)
 
     def forward(self, x):
         residual = x
