@@ -31,6 +31,7 @@ learning_rate = 0.001
 alpha = 0.1
 scale_factor = 2
 activation = "GELU"
+# Test
 
 dataset_path = "../dataset/" + market_name
 if market_name == "SP500":
