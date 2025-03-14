@@ -7,8 +7,8 @@ class SigmoidGatingUnit(nn.Module):
         super().__init__()
         self.norm = nn.LayerNorm(dim)
         self.dim = dim
-        self.ln1 = nn.Linear(dim, dim // 2)
-        self.ln2 = nn.Linear(dim // 2, dim)
+        self.ln1 = nn.Linear(dim, dim // 4)
+        self.ln2 = nn.Linear(dim // 4, dim)
         self.sigmoid = nn.Sigmoid()
         self.acv = nn.ReLU()
 
