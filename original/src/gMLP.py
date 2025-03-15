@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 
 
@@ -11,9 +12,9 @@ class SigmoidGatingUnit(nn.Module):
         self.sigmoid = nn.Sigmoid()
         self.acv = nn.Hardswish()
 
-    def forward(self, u, v):
+    def forward(self, x):
         # Split channels
-        # u, v = torch.chunk(x, chunks=2, dim=-1)
+        u, v = torch.chunk(x, chunks=2, dim=-1)
         u = self.acv(u)
         # v = self.ln1(v)
         # v = self.acv(v)
@@ -27,8 +28,7 @@ class gMLPBlock(nn.Module):
         super().__init__()
 
         self.norm = nn.LayerNorm(input_dim)
-        self.channel_proj_in1 = nn.Linear(input_dim, hidden_dim)
-        self.channel_proj_in2 = nn.Linear(input_dim, hidden_dim)
+        self.channel_proj1 = nn.Linear(input_dim, hidden_dim * 2)
         self.sgu = SigmoidGatingUnit(hidden_dim, seq_len)
         self.channel_proj2 = nn.Linear(hidden_dim, input_dim)
         # self.dropout = nn.Dropout(dropout_rate)
@@ -39,19 +39,18 @@ class gMLPBlock(nn.Module):
 
         # Norm and first projection
         x = self.norm(x)
-        u = self.channel_proj_in1(x)
-        v = self.channel_proj_in2(x)
+        x = self.channel_proj1(x)
         # x = self.acv(x)
 
         # Apply spatial gating unit
-        x = self.sgu(u, v)
+        x = self.sgu(x)
 
         # Second projection and dropout
         x = self.channel_proj2(x)
         # x = self.dropout(x)
 
         # Add residual connection
-        return x
+        return x + residual
 
 
 class gMLP(nn.Module):
