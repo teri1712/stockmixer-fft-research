@@ -130,11 +130,11 @@ def get_batch(offset=None):
 
 print("Training with parameters: ", "hidden_market=", market_num, "depth=", depth)
 for epoch in range(epochs):
-    print(
-        "epoch{}##########################################################".format(
-            epoch + 1
-        )
-    )
+    # print(
+    #     "epoch{}##########################################################".format(
+    #         epoch + 1
+    #     )
+    # )
     np.random.shuffle(batch_offsets)
     tra_loss = 0.0
     tra_reg_loss = 0.0
