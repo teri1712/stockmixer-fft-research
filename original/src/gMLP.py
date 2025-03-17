@@ -2,25 +2,26 @@ import torch
 import torch.nn as nn
 
 
-class SigmoidGatingUnit(nn.Module):
+class SpatialGatingUnit(nn.Module):
     def __init__(self, dim, seq_len):
         super().__init__()
         self.norm = nn.LayerNorm(dim)
-        self.dim = dim
-        self.ln1 = nn.Linear(dim, dim)
-        self.ln2 = nn.Linear(dim, dim)
+        self.ln = nn.Linear(dim, dim)
         self.sigmoid = nn.Sigmoid()
-        self.acv = nn.ReLU()
 
     def forward(self, x):
         # Split channels
         u, v = torch.chunk(x, chunks=2, dim=-1)
-        # u = self.acv(u)
-        v = self.norm(v)
-        v = self.ln1(v)
-        v = self.acv(v)
-        v = self.ln2(v)
+        # Apply normalization and spatial projection to v
+        # v = self.norm(v)
+        # v = v.transpose(-1, -2)  # [batch, dim, seq_len]
+        #
+        # v = self.spatial_proj(v)  # [batch, dim, seq_len]
+        v = self.ln(v)
         v = self.sigmoid(v)
+        # v = v.transpose(-1, -2)  # [batch, seq_len, dim]
+
+        # Element-wise multiplication with u
         return u * v
 
 
@@ -30,9 +31,9 @@ class gMLPBlock(nn.Module):
 
         self.norm = nn.LayerNorm(input_dim)
         self.channel_proj1 = nn.Linear(input_dim, hidden_dim * 2)
-        self.sgu = SigmoidGatingUnit(hidden_dim, seq_len)
+        self.sgu = SpatialGatingUnit(hidden_dim, seq_len)
         self.channel_proj2 = nn.Linear(hidden_dim, input_dim)
-        # self.dropout = nn.Dropout(dropout_rate)
+        self.dropout = nn.Dropout(dropout_rate)
         self.acv = nn.Hardswish()
 
     def forward(self, x):
@@ -51,7 +52,7 @@ class gMLPBlock(nn.Module):
         # x = self.dropout(x)
 
         # Add residual connection
-        return x + residual
+        return x
 
 
 class gMLP(nn.Module):
@@ -60,7 +61,7 @@ class gMLP(nn.Module):
             seq_len,
             input_dim,
             hidden_dim=128,
-            depth=4,
+            depth=2,
             dropout_rate=0.1
     ):
         super().__init__()
