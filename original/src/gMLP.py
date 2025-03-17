@@ -17,6 +17,7 @@ class SpatialGatingUnit(nn.Module):
         # v = v.transpose(-1, -2)  # [batch, dim, seq_len]
         #
         # v = self.spatial_proj(v)  # [batch, dim, seq_len]
+        v = self.norm(v)
         v = self.ln(v)
         v = self.sigmoid(v)
         # v = v.transpose(-1, -2)  # [batch, seq_len, dim]
