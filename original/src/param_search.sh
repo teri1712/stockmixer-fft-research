@@ -1,5 +1,5 @@
-market_values=("32" "40" "48" "56" "64")
-depth_values=("2" "4" "6" "8" "10")
+market_values=("32" "48" "64" "96" "128" "256")
+depth_values=("2" "4" "6")
 
 for p1 in "${market_values[@]}"; do
   for p2 in "${depth_values[@]}"; do
