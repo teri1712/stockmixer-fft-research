@@ -7,7 +7,7 @@ class SpatialGatingUnit(nn.Module):
         super().__init__()
         self.norm = nn.LayerNorm(dim)
         self.ln = nn.Linear(dim, dim)
-        self.sigmoid = nn.Sigmoid()
+        self.softmax = nn.Softmax(dim=-1)
         self.acv = nn.Hardswish()
 
     def forward(self, x):
@@ -22,7 +22,7 @@ class SpatialGatingUnit(nn.Module):
         # v = self.ln(v)
 
         u = self.acv(u)
-        v = self.sigmoid(v)
+        v = self.softmax(v)
         # v = v.transpose(-1, -2)  # [batch, seq_len, dim]
 
         # Element-wise multiplication with u
