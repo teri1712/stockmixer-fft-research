@@ -7,7 +7,7 @@ class SpatialGatingUnit(nn.Module):
         super().__init__()
         self.norm = nn.LayerNorm(dim)
         self.ln = nn.Linear(dim, dim)
-        self.sigmoid = nn.Sigmoid()
+        self.sigmoid = nn.Hardswish()
         self.acv = nn.Hardswish()
 
     def forward(self, x):
