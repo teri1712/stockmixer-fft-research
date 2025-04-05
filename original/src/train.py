@@ -16,13 +16,13 @@ device = torch.device("cuda") if torch.cuda.is_available() else "cpu"
 params = sys.argv[1:]
 
 data_path = "../dataset"
-market_name = "NASDAQ"
+market_name = "SP500"
 relation_name = "wikidata"
-stock_num = 1026
+stock_num = 474
 lookback_length = 16
 epochs = 100
-valid_index = 756
-test_index = 1008
+valid_index = 1006
+test_index = 1006 + 253
 fea_num = 5
 market_num = int(params[0])
 depth = int(params[1])
